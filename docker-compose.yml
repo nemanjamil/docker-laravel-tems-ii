@@ -21,6 +21,7 @@ services:
       - ./dockerHub/mysql/my.cnf:/etc/mysql/my.cnf
       - ./dockerHub/mysql/data.sql:/docker-entrypoint-initdb.d/data.sql
       - ./dockerHub/mysql/init.sql:/docker-entrypoint-initdb.d/init.sql
+      - ./dockerHub/mysql/todo.sql:/docker-entrypoint-initdb.d/todo.sql
 
     networks:
       - app-network
