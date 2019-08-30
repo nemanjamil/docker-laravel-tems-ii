@@ -19,8 +19,11 @@ Route::middleware('auth:api')->get('/user', function (Request $request) {
 
 
 Route::get('todo', 'TodoController@index');
-Route::group(['middleware' => 'auth:api'], function() {
-});
 
-Route::group(['middleware' => ['web']], function () {
+
+Route::group(['prefix' => '1.0'], function () {
+    Route::get('all', "SqmsExamVersionController@index");
+    Route::get('hashsalt', "SqmsExamVersionController@hashsalt");
+    Route::post('sentdata',"SqmsExamVersionController@show");
+    Route::get('azure', "AzureController@index");
 });

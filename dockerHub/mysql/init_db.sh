@@ -1,5 +1,5 @@
 #!/bin/bash
-echo "Init_db.sh is initiated"
+echo "INIT_DB.SH is initiated"
 
 # mysql -u root -ptemspass
 # mysql -u root -ptemspass -e "CREATE DATABASE mydbNemanja"

@@ -1,0 +1,51 @@
+FROM php:7.2-fpm
+
+# Copy composer.lock and composer.json ./laravelData/composer.lock
+COPY ./laravelData/composer.json .
+
+RUN apt-get clean
+RUN apt-get update
+
+#install some basic tools
+RUN apt-get install -y \
+        git \
+        tree \
+        vim \
+        wget \
+        subversion
+
+#install some base extensions
+RUN apt-get install -y \
+        zlib1g-dev \
+        zip \
+  && docker-php-ext-install zip
+
+RUN curl -sS https://getcomposer.org/installer | php && mv composer.phar /usr/local/bin/composer
+
+
+# RUN composer install --prefer-dist --no-scripts --no-dev --no-autoloader && rm -rf /root/.composer
+# RUN composer install --prefer-source --no-interaction
+# RUN composer install
+# RUN composer update
+
+# Copy existing application directory contents
+COPY ./laravelData/ /var/www/
+
+
+COPY ./dockerHub/run.sh /var/www/
+
+RUN ["chmod", "+x", "/var/www/run.sh"]
+
+WORKDIR /var/www
+
+ENTRYPOINT ["/bin/sh", "./run.sh"]
+
+# RUN chown -R www-data:www-data /var/www
+# USER www-data
+
+EXPOSE 9000
+
+
+ENV PATH="~/.composer/vendor/bin:./vendor/bin:${PATH}"
+
+CMD ["/var/www/run.sh", "php-fpm"]

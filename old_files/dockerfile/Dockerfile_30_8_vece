@@ -26,6 +26,14 @@ RUN docker-php-ext-install gd
 
 COPY ./laravelData/ /var/www
 
+RUN ls -lsa
+
+RUN curl -sS https://getcomposer.org/installer | php \
+        && mv composer.phar /usr/local/bin/ \
+        && ln -s /usr/local/bin/composer.phar /usr/local/bin/composer
+
+RUN composer install --prefer-source --no-interaction --prefer-dist
+
 COPY ./dockerHub/app_run.sh /root/
 RUN dos2unix /root/app_run.sh
 RUN /root/app_run.sh

@@ -3,12 +3,13 @@ services:
 
   #MySQL Service
   db:
+    #image: mysql:5.7.22
     image : tems/db
     container_name: db
     restart: unless-stopped
     tty: true
     ports:
-      - "3306:3306"
+      - "3308:3306"
     build:
       context: ./dockerHub/mysql
     environment:
@@ -19,10 +20,9 @@ services:
     volumes:
       - data-volume:/var/lib/mysql/
       - ./dockerHub/mysql/my.cnf:/etc/mysql/my.cnf
-      - ./dockerHub/mysql/data.sql:/docker-entrypoint-initdb.d/data.sql
-      - ./dockerHub/mysql/init.sql:/docker-entrypoint-initdb.d/init.sql
       - ./dockerHub/mysql/todo.sql:/docker-entrypoint-initdb.d/todo.sql
-
+      - ./dockerHub/mysql/bpm.sql:/docker-entrypoint-initdb.d/bpm.sql
+      - ./dockerHub/mysql/init.sql:/docker-entrypoint-initdb.d/init.sql
     networks:
       - app-network
 
@@ -56,11 +56,9 @@ services:
     working_dir: /var/www
     volumes:
       - ./laravelData/:/var/www
-      - ./dockerHub/php/local.ini:/usr/local/etc/php/conf.d/local.ini
+      - ./php/local.ini:/usr/local/etc/php/conf.d/local.ini
     networks:
       - app-network
-
-
 
 #Docker Networks
 networks:
