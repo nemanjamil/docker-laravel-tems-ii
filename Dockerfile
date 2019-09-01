@@ -24,13 +24,13 @@ RUN docker-php-ext-configure gd --with-gd --with-freetype-dir=/usr/include/ --wi
 RUN docker-php-ext-install gd
 
 
-COPY ./laravelData/ /var/www
+COPY ./laravelData/ /var/www/be
 
 COPY ./dockerHub/app_run.sh /root/
 RUN dos2unix /root/app_run.sh
 RUN /root/app_run.sh
 
-# RUN chown -R www-data:www-data /var/www
+# RUN chown -R www-data:www-data /var/www/be
 # USER www-data
 
 RUN ls -lsa

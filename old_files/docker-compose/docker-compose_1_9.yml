@@ -46,7 +46,7 @@ services:
       - ./dockerHub/nginx/conf.d/:/etc/nginx/conf.d
       - ./dockerHub/nginx/nginx.conf:/etc/nginx/nginx.conf
       - ./dockerHub/nginx/sites/default.conf:/etc/nginx/sites-available/default.conf
-      #- ./dockerHub/nginx/sites/fe.conf:/etc/nginx/sites-available/fe.conf
+      - ./dockerHub/nginx/sites/fe.conf:/etc/nginx/sites-available/fe.conf
     networks:
       - app-network
 
@@ -69,19 +69,19 @@ services:
     networks:
       - app-network
 
-#  fe:
-#    build:
-#      context: ./dockerHub/fe
-#    image: tems/fe
-#    container_name: fe
-#    restart: unless-stopped
-#    tty: true
-#    ports:
-#      - "82:82"
-#    volumes:
-#      - ./fe/:/var/www/fe
-#    networks:
-#      - app-network
+  fe:
+    build:
+      context: ./dockerHub/fe
+    image: tems/fe
+    container_name: fe
+    restart: unless-stopped
+    tty: true
+    ports:
+      - "82:82"
+    volumes:
+      - ./fe/:/var/www/fe
+    networks:
+      - app-network
 
 
 

@@ -37,16 +37,13 @@ services:
     restart: unless-stopped
     tty: true
     ports:
-      - "81:81"
-      - "82:82"
+      - "81:80"
       - "443:443"
     volumes:
-      - ./laravelData/:/var/www/be
-      - ./laravelData/:/var/www/fe
-      - ./dockerHub/nginx/conf.d/:/etc/nginx/conf.d
-      - ./dockerHub/nginx/nginx.conf:/etc/nginx/nginx.conf
+      - ./laravelData/:/var/www
+      #- ./dockerHub/nginx/nginx.conf:/etc/nginx/nginx.conf
       - ./dockerHub/nginx/sites/default.conf:/etc/nginx/sites-available/default.conf
-      #- ./dockerHub/nginx/sites/fe.conf:/etc/nginx/sites-available/fe.conf
+      - ./dockerHub/nginx/conf.d/:/etc/nginx/conf.d
     networks:
       - app-network
 
@@ -64,26 +61,24 @@ services:
       SERVICE_TAGS: dev
     working_dir: /var/www
     volumes:
-      - ./laravelData/:/var/www/be
+      - ./laravelData/:/var/www
       - ./dockerHub/php/local.ini:/usr/local/etc/php/conf.d/local.ini
     networks:
       - app-network
 
-#  fe:
-#    build:
-#      context: ./dockerHub/fe
-#    image: tems/fe
-#    container_name: fe
-#    restart: unless-stopped
-#    tty: true
-#    ports:
-#      - "82:82"
-#    volumes:
-#      - ./fe/:/var/www/fe
-#    networks:
-#      - app-network
-
-
+  fe:
+    build:
+      context: ./dockerHub/fe
+    image: tems/fe
+    container_name: fe
+    restart: unless-stopped
+    tty: true
+    ports:
+      - "82:80"
+    volumes:
+      - ./fe/:/var/www2
+    networks:
+      - app-network
 
 
 

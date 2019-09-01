@@ -1,0 +1,21 @@
+FROM ubuntu:latest
+# MAINTAINER Hemanshu Bhojak <hemanshubhojak@example.com>
+
+RUN apt-get update
+# RUN apt-get install -y nodejs
+RUN apt-get install -y npm
+# RUN ln -s /usr/bin/nodejs /usr/bin/node
+
+RUN npm install -g http-server
+
+# ADD index.html /usr/apps/hello-docker/index.html
+# WORKDIR /usr/apps/hello-docker/
+
+CMD ["http-server", "-s"]
+
+
+#FROM ubuntu
+#WORKDIR /var/www
+#RUN apt-get update
+# Define default command.
+#CMD ["bash"]
