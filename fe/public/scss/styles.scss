@@ -1,0 +1,37 @@
+$bg-color : white;
+$body-bg: #ededed;
+$theme-color-color: #c8c8c8;
+
+$theme-colors: (
+        "primary": $theme-color-color
+);
+@import "../../node_modules/bootstrap/scss/bootstrap";
+
+
+#mainform {
+
+  input.input_hash_salt {
+    width: 100%;
+  }
+}
+
+.tab-height {
+  min-height: 300px;
+}
+.textareawidth {
+  min-width: 100%;
+  border: none;
+  background: transparent;
+  outline: none;
+  box-sizing: border-box;
+  min-height: 300px;
+  margin:0px auto;
+  display: block;
+}
+.tabsjson a {
+  background-color: #f8f9fa;
+  color: black;
+}
+#demoform {
+  font-size: 10px;
+}

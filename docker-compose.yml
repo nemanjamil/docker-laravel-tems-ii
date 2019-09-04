@@ -4,7 +4,7 @@ services:
   #MySQL Service
   db:
     #image: mysql:5.7.22
-    image : tems/db
+    #image : tems/db
     container_name: db
     restart: unless-stopped
     tty: true
@@ -32,14 +32,14 @@ services:
       context: ./dockerHub/nginx
       args:
         - ARG_LATEST=alpine
-    image : tems/nginx
+    #image : tems/nginx
     container_name: webserver
     restart: unless-stopped
     tty: true
     ports:
       - "81:81"
       - "82:82"
-      - "443:443"
+      #- "443:443"
     volumes:
       - ./laravelData/:/var/www/be
       - ./fe/:/var/www/fe
@@ -55,7 +55,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    image: tems/php
+    #image: tems/php
     container_name: app
     restart: unless-stopped
     tty: true
@@ -72,10 +72,13 @@ services:
   fe:
     build:
       context: ./dockerHub/fe
-    image: tems/fe
+    #image: tems/fe
     container_name: fe
     restart: unless-stopped
     tty: true
+    #environment:
+      #API_ENDPOINT: "app; http://localhost:81/api/"
+      #ALLOW_OTHER_API: "true"
     volumes:
       - ./fe/:/var/www/fe
     networks:

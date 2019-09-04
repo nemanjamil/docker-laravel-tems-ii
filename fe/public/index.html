@@ -1,10 +1,101 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <title>FE SERVER</title>
+    <!-- Required meta tags -->
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Raleway:400,800">
+    <link rel='stylesheet' href="https://maxcdn.bootstrapcdn.com/font-awesome/4.7.0/css/font-awesome.min.css">
+
+    <!-- Bootstrap CSS -->
+    <link rel="stylesheet" href="/css/bootstrap.css">
+    <link rel="stylesheet" href="/css/styles.css">
+    <link rel="stylesheet" type="text/css" href="css/dist/bootstrap-duallistbox.css">
+
+    <!--remove for production-->
+    <!-- <link rel="stylesheet" href="/node_modules/bootstrap/dist/css/bootstrap.css">
+    <link rel="stylesheet" href="/src/scss/styles.scss">-->
+    <!--end remove for production-->
+
+    <title>Hello, world of exams!</title>
 </head>
 <body>
-    OPALA WWW2
+
+<div class="container">
+
+    <!-- Modal -->
+    <div class="modal" tabindex="-1" role="dialog">
+        <div class="modal-dialog" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Alert</h5>
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <p id="popuptext"></p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+
+    <form class="form-inline mt-3" id="mainform">
+        <span id="loading"></span>
+
+        <div class="mb-2 col-lg-6">
+            <input type="text" class="text-uppercase form-control input_hash_salt" id="inputhashsalt" placeholder="HASH_SALT">
+        </div>
+
+        <div class="mb-2 col-lg-6">
+            <input type="number" id="successpercent" value="65" class="text-uppercase form-control" min="0" step="1" max="100">
+        </div>
+    </form>
+
+    <div class="container">
+        <form id="demoform" action="#" method="post">
+            <select id="selectList" multiple="multiple" size="10" name="duallistbox_demo1[]" title="duallistbox_demo1[]">
+            </select>
+            <br>
+            <button type="submit" class="btn btn-light" value="generate">Generate</button>
+            <button type="submit" class="btn btn-light" value="download">Download</button>
+        </form>
+
+        <span id="loading-button"></span>
+        <div class="mt-3 border">
+
+            <nav class="nav nav-pills tabsjson">
+                <a class="nav-item nav-link active" data-toggle="tab" href="#home">JSON</a>
+                <a class="nav-item nav-link" data-toggle="tab" href="#menu1">XML</a>
+            </nav>
+
+            <div class="tab-content mt-3 tab-height">
+
+                <div id="home" class="tab-pane fade show active">
+                    <pre class="jsonview"></pre>
+                </div>
+
+                <div id="menu1" class="tab-pane fade">
+                    <textarea class="textareawidth form-control showxml"></textarea>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+</div>
+
+<script src="js/jquery.min.js" crossorigin="anonymous"></script>
+<script src="js/popper.min.js" crossorigin="anonymous"></script>
+<script src="js/bootstrap.min.js" crossorigin="anonymous"></script>
+<script src="js/dist/jquery.bootstrap-duallistbox.js"></script>
+<script src="js/beautyxml/vkbeautify.0.99.00.beta.js" type="text/javascript"></script>
+<script src="js/js.js" type="text/javascript"></script>
+
 </body>
 </html>
