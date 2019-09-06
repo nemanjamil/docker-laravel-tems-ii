@@ -50,17 +50,32 @@ services:
     networks:
       - app-network
 
-  #PHP Service
-  app:
+  php-fpm:
     build:
-      context: .
-      dockerfile: Dockerfile
+      context: ./dockerHub/php
+    container_name: php-fpm
+    ports:
+      - "9000:9000"
+      #- "9001:9000"
+    volumes:
+      - ./laravelData/:/var/www/be
+      - ./fe/:/var/www/fe
+      - ./dockerHub/php/local.ini:/usr/local/etc/php/conf.d/local.ini
+      #- ./docker_images/php/fpm/www.conf:/etc/php-fpm.d/www.conf
+      #- ./docker_images/php/fpm/php-fpm.conf:/usr/local/etc/php-fpm.conf
+      #- ./docker_data/php-fpm:/logs
+    networks:
+      - app-network
+
+  laravel:
+    build:
+      context: ./dockerHub/laravel
     #image: tems/php
-    container_name: app
+    container_name: laravel
     restart: unless-stopped
     tty: true
     environment:
-      SERVICE_NAME: app
+      SERVICE_NAME: laravel
       SERVICE_TAGS: dev
     working_dir: /var/www
     volumes:
@@ -68,6 +83,25 @@ services:
       - ./dockerHub/php/local.ini:/usr/local/etc/php/conf.d/local.ini
     networks:
       - app-network
+
+  #PHP Service
+#  app:
+#    build:
+#      context: .
+#      dockerfile: Dockerfile
+#    #image: tems/php
+#    container_name: app
+#    restart: unless-stopped
+#    tty: true
+#    environment:
+#      SERVICE_NAME: app
+#      SERVICE_TAGS: dev
+#    working_dir: /var/www
+#    volumes:
+#      - ./laravelData/:/var/www/be
+#      - ./dockerHub/php/local.ini:/usr/local/etc/php/conf.d/local.ini
+#    networks:
+#      - app-network
 
   fe:
     build:
