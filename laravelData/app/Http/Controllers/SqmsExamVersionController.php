@@ -255,10 +255,10 @@ class SqmsExamVersionController extends Controller
             Storage::put($publiclink . '/' . $namefile . '.salt', $hash_salt);
 
             // save JSON Questions to Azure Blob
-            //$this->saveToAzureBlob($publiclink,$namefile);
+            $this->saveToAzureBlob($publiclink,$namefile);
 
             // save SALT to Azure Blob
-            //$this->saveSaltToAzureBlob($publiclink,$namefile);
+            $this->saveSaltToAzureBlob($publiclink,$namefile);
 
         }  else {
             $namefile = false;

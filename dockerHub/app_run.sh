@@ -2,6 +2,7 @@
 
 echo "ARTISAN KEY AND CONFIG"
 pwd
-cd be
+cd /var/www/be
 php artisan key:generate
 php artisan config:clear
+php artisan storage:link

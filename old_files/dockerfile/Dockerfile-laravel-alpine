@@ -1,0 +1,55 @@
+FROM alpine:latest
+
+# docker-entrypoint.sh dependencies
+RUN apk add --no-cache bash coreutils dos2unix
+
+RUN set -x ; \
+  addgroup -g 82 -S www-data ; \
+  adduser -u 82 -D -S -G www-data www-data && exit 0 ; exit 1
+
+WORKDIR /var/www
+
+RUN chown -R www-data:www-data be
+
+# ENTRYPOINT ls /usr
+CMD ["bash"]
+
+# COPY docker-entrypoint-laravel.sh /usr/local/bin/
+# WORKDIR /var/www
+# ENTRYPOINT ls /usr
+# ENTRYPOINT ping www.google.com
+
+# ENTRYPOINT ["/usr/local/bin/docker-entrypoint-laravel.sh"]
+# RUN ln -s /usr/local/bin/docker-entrypoint-laravel.sh /
+# ENTRYPOINT ["docker-entrypoint-laravel.sh"]
+# EXPOSE 9000
+# CMD ["bash"]
+
+
+
+
+# RUN apk update && apk add -y --no-cache bash coreutils dos2unix
+# COPY docker-entrypoint-laravel.sh /usr/local/bin/
+# RUN dos2unix /usr/local/bin/docker-entrypoint-laravel.sh
+
+
+# ENTRYPOINT ["/usr/local/bin/docker-entrypoint-laravel.sh"]
+# CMD ["bash"]
+
+
+# docker-entrypoint.sh dependencies
+# RUN apk add --no-cache bash coreutils
+
+# WORKDIR /var/www
+# ENTRYPOINT ls /usr
+# ENTRYPOINT ping www.google.com
+
+# ENTRYPOINT ["/usr/local/bin/docker-entrypoint-laravel.sh"]
+# RUN ln -s /usr/local/bin/docker-entrypoint-laravel.sh /
+# ENTRYPOINT ["docker-entrypoint-laravel.sh"]
+# EXPOSE 9000
+# CMD ["bash"]
+
+
+
+
