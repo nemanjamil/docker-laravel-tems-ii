@@ -14,7 +14,8 @@ use MicrosoftAzure\Storage\Blob\Models\CreateBlobOptions;
 class SqmsExamVersionController extends Controller
 {
 
-    private static $tableName = "sqms_exam_version";
+    //private static $tableName = "sqms_exam_version";
+    private static $tableName = "v_sqms_exam_version_sample_set";
 
     public function index()
     {
@@ -192,7 +193,9 @@ class SqmsExamVersionController extends Controller
 
     public function show(Sqms_exam_version $sqms_exam_version, Request $request)
     {
+
         $datafull = $request->all();
+
         $data = $datafull["data"];
         $hash_salt = strtoupper($datafull["hash_salt"]);
         $savedata = $datafull["savedata"];
@@ -229,7 +232,9 @@ class SqmsExamVersionController extends Controller
 
 
         } else {
+
             $json = $this->showOne($data, $hash_salt, $successpercent);
+
             $xml = $this->generateXML($data, $hash_salt);
             $linkdofile = $this->saveToStorage($savedata, $json, $xml, $hash_salt);
 
