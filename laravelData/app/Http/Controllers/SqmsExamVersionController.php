@@ -432,7 +432,7 @@ class SqmsExamVersionController extends Controller
         $idv = $onev[0];
         $idvcsv = $onev[0];
 
-        $queryExams = DB::select("CALL selectOneExam($idv)");
+        $queryExams = DB::select("CALL selectOneExamSet($idv)");
         //$queryExams = DB::table('sqms_exam_version')->where('sqms_exam_version_id', $idv)->get();
 
         $idset = '';
