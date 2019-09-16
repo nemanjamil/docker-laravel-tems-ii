@@ -30,6 +30,6 @@ COPY ./laravelData/ /var/www/be
 
 COPY ./dockerHub/app_run.sh /root/
 RUN dos2unix /root/app_run.sh
-RUN /root/app_run.sh
+RUN ["chmod", "+x", "/root/app_run.sh"]
 
 
