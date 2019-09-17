@@ -6,9 +6,11 @@ use App\Sqms_exam_version;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
-use WindowsAzure\Common\ServicesBuilder;
-use WindowsAzure\Common\ServiceException;
-use MicrosoftAzure\Storage\Blob\Models\CreateBlobOptions;
+#use WindowsAzure\Common\ServicesBuilder;
+#use WindowsAzure\Common\ServiceException;
+use MicrosoftAzure\Storage\Blob\Models\CreateBlockBlobOptions;# imports
+use MicrosoftAzure\Storage\Blob\BlobRestProxy;
+
 
 
 class SqmsExamVersionController extends Controller
@@ -276,16 +278,17 @@ class SqmsExamVersionController extends Controller
     protected function saveSaltToAzureBlob($publiclink,$namefile){
 
         $connectionString = "DefaultEndpointsProtocol=http;AccountName=".env('AZURE_ACCOUNT_NAME').";AccountKey=".env('AZURE_ACCOUNT_KEY');
-        $blobRestProxy = ServicesBuilder::getInstance()->createBlobService($connectionString);
+        //$blobRestProxy = ServicesBuilder::getInstance()->createBlobService($connectionString);
+        $blobClient = BlobRestProxy::createBlobService($connectionString);
 
         $content = Storage::get($publiclink . '/' . $namefile . '.salt');
         $blob_name = 'salt/'.$namefile.".salt";
 
         try {
-            $options = new CreateBlobOptions();
+            $options = new CreateBlockBlobOptions();
             $contentType = 'text/plain';
             $options->setContentType($contentType);
-            $blobRestProxy->createBlockBlob(env('AZURE_CONTAINER'), $blob_name, $content,$options);
+            $blobClient->createBlockBlob(env('AZURE_CONTAINER'), $blob_name, $content,$options);
         } catch(ServiceException $e){
             $code = $e->getCode();
             $error_message = $e->getMessage();
@@ -297,16 +300,18 @@ class SqmsExamVersionController extends Controller
     protected function saveToAzureBlob($publiclink,$namefile){
 
         $connectionString = "DefaultEndpointsProtocol=http;AccountName=".env('AZURE_ACCOUNT_NAME').";AccountKey=".env('AZURE_ACCOUNT_KEY');
-        $blobRestProxy = ServicesBuilder::getInstance()->createBlobService($connectionString);
+        //$blobRestProxy = ServicesBuilder::getInstance()->createBlobService($connectionString);
+        $blobClient = BlobRestProxy::createBlobService($connectionString);
+
 
         $content = Storage::get($publiclink . '/' . $namefile . '.json');
         $blob_name = $namefile.".json";
 
         try {
-            $options = new CreateBlobOptions();
+            $options = new CreateBlockBlobOptions();
             $contentType = 'application/json';
             $options->setContentType($contentType);
-            $blobRestProxy->createBlockBlob(env('AZURE_CONTAINER'), $blob_name, $content,$options);
+            $blobClient->createBlockBlob(env('AZURE_CONTAINER'), $blob_name, $content,$options);
         } catch(ServiceException $e){
             $code = $e->getCode();
             $error_message = $e->getMessage();
