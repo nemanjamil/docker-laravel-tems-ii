@@ -22,6 +22,7 @@ Route::get('todo', 'TodoController@index');
 
 
 Route::group(['prefix' => '1.0'], function () {
+    Route::get('getconnection', "SqmsExamVersionController@getconnection");
     Route::get('all', "SqmsExamVersionController@index");
     Route::get('hashsalt', "SqmsExamVersionController@hashsalt");
     Route::post('sentdata',"SqmsExamVersionController@show");

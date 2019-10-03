@@ -24,6 +24,30 @@ class SqmsExamVersionController extends Controller
         return Sqms_exam_version::all();
     }
 
+    public function getconnection(){
+        try {
+            DB::connection()->getPdo();
+            if(DB::connection()->getDatabaseName()){
+                return response()->json([
+                    "message" => "Connected",
+                    "status" => true
+
+                ], 200);
+            }else{
+                return response()->json([
+                    "message" => "Could not find the database. Please check your configuration.",
+                    "status" => false
+
+                ],400);
+            }
+        } catch (\Exception $e) {
+            return response()->json([
+                "message" => "Could not open connection to database server.  Please check your configuration.",
+                "status" => false
+            ], 400);
+        }
+    }
+
     public function hashsalt()
     {
         return response()->json(config('constants.hash_salt'));
