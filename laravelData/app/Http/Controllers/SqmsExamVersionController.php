@@ -278,8 +278,7 @@ class SqmsExamVersionController extends Controller
     protected function saveToStorage($savedata, $json, $xml, $hash_salt)
     {
         if ($savedata == 'download') {
-            //$namefile = str_replace("_", "", $json["ExamVersion_Name"]);
-            $namefile = $json["ExamVersion_Name"];
+            $namefile = preg_replace('/[^a-zA-Z0-9]+/', '-', $json["ExamVersion_Name"]);
             $publiclink = 'public/' . $namefile;
             Storage::makeDirectory($publiclink);
             Storage::put($publiclink . '/' . $namefile . '.json', json_encode($json));
@@ -421,7 +420,7 @@ class SqmsExamVersionController extends Controller
                     $answer_is_sprint = sprintf("%010d", $v->sqms_answer_id);
                     $forls['answer_id'] = $answer_is_sprint;
                     $forls['answer_text'] = strip_tags(html_entity_decode($v->answer, ENT_COMPAT | ENT_HTML401, 'UTF-8'));
-                    $forls['correct'] = $correct_answ;
+                    //$forls['correct'] = $correct_answ;
 
                     if ($correct_answ == 1) {
                             $firstNumberforHash .= $answer_is_sprint;
