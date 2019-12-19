@@ -59,14 +59,37 @@
 
     <div class="container">
         <form id="demoform" action="#" method="post">
-            <select id="selectList" multiple="multiple" size="10" name="duallistbox_demo1[]" title="duallistbox_demo1[]">
-            </select>
-            <br>
-            <button type="submit" class="btn btn-light" value="generate">Generate</button>
-            <button type="submit" class="btn btn-light" value="download">Download</button>
+
+            <div class="form-group">
+                <label for="selectList">Select Exam</label>
+                <select id="selectList" multiple="multiple" size="10" name="duallistbox_demo1[]" title="duallistbox_demo1[]">
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label for="nameofexam">Name of exam</label>
+                <input type="text" class="form-control" id="nameofexam" placeholder="Enter name of exam" required>
+            </div>
+
+            <div class="form-group row">
+                <div class="col-1">
+                    <button type="submit" class="btn btn-light" value="generate">Generate</button>
+                </div>
+                <div class="col-1">
+                    <button type="submit" class="btn btn-light" value="download">Download</button>
+                </div>
+                <div class="col-10">
+
+                </div>
+            </div>
+
+
+
         </form>
 
+
         <span id="loading-button"></span>
+
         <div class="mt-3 border">
 
             <nav class="nav nav-pills tabsjson">
