@@ -95,7 +95,8 @@ class SqmsExamVersionController extends Controller
         $allowed .= "<img><a><abbr><address><blockquote><area><audio><video>";
         $allowed .= "<caption><table><tbody><td><tfoot><th><thead><tr><sup><sub>";
 
-        return  htmlspecialchars(strip_tags($value,$allowed));
+        //return  htmlspecialchars(strip_tags($value,$allowed));
+        return  strip_tags($value,$allowed);
     }
 
     protected function generateXMLMore($data, $hash_salt)
