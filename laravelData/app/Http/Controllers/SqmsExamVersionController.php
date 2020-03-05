@@ -412,6 +412,7 @@ class SqmsExamVersionController extends Controller
             $string = rtrim($v->question, '</p>');
             $string = ltrim($string, '<p>');
             $qarr['question_text'] = $this->striphtml($string);
+            //$qarr['testindb'] = $v->question;
 
 
 
