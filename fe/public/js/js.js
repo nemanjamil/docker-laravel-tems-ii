@@ -28,6 +28,7 @@ $(document).ready(function () {
         serialData = $($duallist).val();
         hashSaltvalue = $("#inputhashsalt").val();
         successpercent = $("#successpercent").val();
+        plannedDuration = $("#plannedDuration").val();
         nameofexam = $("#nameofexam").val();
 
         if (serialData.length == 0) {
@@ -55,24 +56,40 @@ $(document).ready(function () {
             return;
         }
 
+        if (!plannedDuration) {
+            $("#popuptext").html("");
+            $("#popuptext").html("You must planned duration of exam");
+            $('.modal').modal('show');
+            return;
+        }
+
         $url = $serverlink + "api/1.0/sentdata";
         $.ajax({
             url: $url,
             type: "POST",
             //dataType: "JSON",
-            data: {data: serialData, hash_salt: hashSaltvalue, savedata: $(this).attr("value"), successpercent: successpercent, nameofexam: nameofexam },
+            data: {
+                data: serialData,
+                hash_salt: hashSaltvalue,
+                savedata: $(this).attr("value"),
+                successpercent: successpercent,
+                nameofexam: nameofexam,
+                plannedDuration: plannedDuration,
+            },
             beforeSend: function() {
                 $("#loading-button").html('<div class="spinner-border" role="status"><span class="sr-only">Loading...</span></div>');
             },
             success: function (result) {
+
                 if (result.status) {
                     $("#loading-button").html('');
+                    $("#download").prop('disabled', false).css('cursor', 'pointer');
                     $(".jsonview").text(vkbeautify.json(result.json));
                     $(".showxml").text(vkbeautify.xml(result.xml, 5));  // text, html, append
 
                     if (result.savedata) {
                         $("#popuptext").html("");
-                        serverlinkStorage = $serverlink + 'storage/'
+                        serverlinkStorage = $serverlink + 'storage/';
                         $('#popuptext').append(
                             $('<ul>').append(
                                 $('<li>').append(
@@ -91,6 +108,15 @@ $(document).ready(function () {
                         return;
                     }
 
+                    if(result.questionCount == 0) {
+                        $("#download").prop('disabled', true).css('cursor', 'not-allowed');
+                        $("#popuptext").html("");
+                        $("#popuptext").html("Selected exam does not have any questions, download is disabled");
+                        $('.modal').modal('show');
+                        $("#loading-button").html('');
+                        return;
+                    }
+
                 } else {
                     $("#popuptext").html("");
                     $("#popuptext").html(result.message);
@@ -99,8 +125,11 @@ $(document).ready(function () {
                     return;
                 }
             },
-            error: function () {
-                alert("Error oops.");
+            error: function (result) {
+                $("#loading-button").html('');
+                $("#popuptext").html("");
+                $("#popuptext").html("Error happened, please try again");
+                $('.modal').modal('show');
             }
         });
 

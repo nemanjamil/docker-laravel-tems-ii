@@ -46,14 +46,20 @@
 
 
     <form class="form-inline mt-3" id="mainform">
-        <span id="loading"></span>
+        <div class="col-lg-12">
+            <span id="loading"></span>
+        </div>
 
         <div class="mb-2 col-lg-6">
             <input type="text" class="text-uppercase form-control input_hash_salt" id="inputhashsalt" placeholder="HASH_SALT">
         </div>
 
-        <div class="mb-2 col-lg-6">
+        <div class="mb-2 col-lg-3 col-md-6">
             <input type="number" id="successpercent" value="65" class="text-uppercase form-control" min="0" step="1" max="100">
+        </div>
+    
+        <div class="mb-2 col-lg-3 col-md-6">
+            <input type="number" id="plannedDuration" value="30" class="text-uppercase form-control" min="0" step="1" max="100">
         </div>
     </form>
 
@@ -72,11 +78,11 @@
             </div>
 
             <div class="form-group row">
-                <div class="col-1">
-                    <button type="submit" class="btn btn-light" value="generate">Generate</button>
+                <div class="col-1 mr-1">
+                    <button type="submit" id="generate" class="btn btn-light" value="generate">Generate</button>
                 </div>
                 <div class="col-1">
-                    <button type="submit" class="btn btn-light" value="download">Download</button>
+                    <button type="submit" id="download" class="btn btn-light" value="download" disabled>Download</button>
                 </div>
                 <div class="col-10">
 
