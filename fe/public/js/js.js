@@ -51,7 +51,7 @@ $(document).ready(function () {
         }
         if (!successpercent) {
             $("#popuptext").html("");
-            $("#popuptext").html("You must enter seccess percent");
+            $("#popuptext").html("You must enter success percent");
             $('.modal').modal('show');
             return;
         }

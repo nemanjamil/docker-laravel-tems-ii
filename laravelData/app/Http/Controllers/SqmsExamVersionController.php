@@ -55,7 +55,277 @@ class SqmsExamVersionController extends Controller
         return response()->json(config('constants.hash_salt'));
     }
 
-    protected function  showMore($data, $hash_salt, $successpercent, $nameOfExam, $plannedDuration)
+    /**
+     * Endpoint for handling sent data
+     *
+     * @param \App\Sqms_exam_version $sqms_exam_version
+     * @param \Illuminate\Http\Request $request
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function show(Sqms_exam_version $sqms_exam_version, Request $request)
+    {
+        $datafull = $request->all();
+        $data = $datafull["data"];
+        $hash_salt = strtoupper($datafull["hash_salt"]);
+        $nameOfExam = trim($datafull["nameofexam"]);
+        $savedata = $datafull["savedata"];
+        $successpercent = (int) $datafull["successpercent"];
+        $plannedDuration = (int) $datafull["plannedDuration"];
+
+        if (!$hash_salt) {
+            return response()->json([
+                'message' => 'No hash_salt, please add one',
+                'status' => false
+            ]);
+            die;
+        }
+
+        if (!$successpercent) {
+            return response()->json([
+                'message' => 'No success percent, please add one',
+                'status' => false
+            ]);
+            die;
+        }
+
+        if (!$nameOfExam) {
+            return response()->json([
+                'message' => 'No name of exam, please add one',
+                'status' => false
+            ]);
+            die;
+        }
+
+        if (!$plannedDuration) {
+            return response()->json([
+                'message' => 'No exam planned duration, please add one',
+                'status' => false
+            ]);
+            die;
+        }
+
+        if (!$data) {
+            return response()->json([
+                'message' => 'No exam selected, please select one one',
+                'status' => false
+            ]);
+            die;
+        }
+
+        $questionCount = $this->countQuestionsTotal($data);
+
+        if (count($data) > 1) {
+            $json = $this->showMore($data, $hash_salt, $successpercent, $nameOfExam, $plannedDuration);
+            $xml = $this->generateXMLMore($data, $hash_salt);
+            $linkdofile = $this->saveToStorage($savedata, $json, $xml, $hash_salt);
+
+            return response()->json([
+                'json' => $json,
+                'xml' => $xml,
+                'message' => 'Ok',
+                'status' => true,
+                'savedata' => $linkdofile,
+                'questionCount' => $questionCount,
+            ]);
+
+
+        } else {
+            $json = $this->showOne($data, $hash_salt, $successpercent, $nameOfExam, $plannedDuration);
+            $xml = $this->generateXML($data, $hash_salt);
+            $linkdofile = $this->saveToStorage($savedata, $json, $xml, $hash_salt);
+
+            return response()->json([
+                'json' => $json,
+                'xml' => $xml,
+                'message' => 'Ok',
+                'status' => true,
+                'savedata' => $linkdofile,
+                'questionCount' => $questionCount,
+            ]);
+
+        }
+    }
+
+    /**
+     * Used to process data when there is only one exam
+     *
+     * @param $data
+     * @param $hash_salt
+     * @param $successpercent
+     * @param $nameOfExam
+     * @param $plannedDuration
+     * @return \Illuminate\Http\JsonResponse
+     */
+    protected function showOne($data, $hash_salt, $successpercent, $nameOfExam, $plannedDuration)
+    {
+
+        $onev = explode("|", $data[0]);
+        $idv = $onev[0];
+        $idvcsv = $onev[0];
+
+        $queryExams = DB::select("CALL selectOneExamSet($idv)");
+        //$queryExams = DB::table('sqms_exam_version')->where('sqms_exam_version_id', $idv)->get();
+
+        $idset = '';
+        $i = 0;
+
+        foreach ($queryExams as $k => $v) {
+            $examNamefull = $v->sqms_exam_version_name;
+            $sqms_exam_version_id = sprintf("%010d", $v->sqms_exam_version_id);
+            $sqms_exam_set = sprintf("%05d", $v->sqms_exam_set);
+            $sqms_exam_version = sprintf("%05d", $v->sqms_exam_version);
+            $sqms_exam_version_sample_set = $v->sqms_exam_version_sample_set;
+            $idset = $sqms_exam_version_id . '-' . $sqms_exam_set . '-' . $sqms_exam_version . '-' . $sqms_exam_version_sample_set . '-';
+            $i++;
+        }
+
+        return $this->showAdv($idvcsv, $examNamefull, $idset, $hash_salt, $v->sqms_exam_set, $v->sqms_exam_version, $sqms_exam_version_sample_set, $successpercent, $nameOfExam, $plannedDuration);
+
+    }
+
+    /**
+     * Generating XML when there is only one exam
+     *
+     * @param $data
+     * @param $hash_salt
+     * @return string
+     */
+    protected function generateXML($data, $hash_salt)
+    {
+
+        $idvcsv = '';
+        foreach ($data as $k => $v) {
+            $onev = explode("|", $v);
+            $idv[] = $onev[0];
+            $idvcsv .= $onev[0] . ',';
+        }
+
+        $queryExams = DB::table(self::$tableName)->where('sqms_exam_version_id', $idv)->get();
+        //$queryExams = DB::table('sqms_exam_version')->where('sqms_exam_version_id', $idv)->get();
+
+
+        $domtree = new \DOMDocument('1.0', 'UTF-8');
+        $xmlRoot = $domtree->createElement("quiz");
+        $xmlRoot = $domtree->appendChild($xmlRoot);
+
+        $idset = '';
+        $i = 0;
+
+        $numberOfQuestionTotal = $this->numberOfQuestionTotal($idvcsv);
+        $numberOfQuestionTotalNumber = $numberOfQuestionTotal[0]->questionTotal;
+
+        foreach ($queryExams as $k => $v) {
+            $sqms_exam_version_id = sprintf("%010d", $v->sqms_exam_version_id);
+            $sqms_exam_set = sprintf("%05d", $v->sqms_exam_set);
+            $sqms_exam_version = sprintf("%05d", $v->sqms_exam_version);
+            $sqms_exam_version_sample_set = $v->sqms_exam_version_sample_set;
+            $idset = $sqms_exam_version_id . '-' . $sqms_exam_set . '-' . $sqms_exam_version . '-' . $sqms_exam_version_sample_set . '-';
+
+            $xmlRoot->appendChild($domtree->createElement('examName', $v->sqms_exam_version_name));
+            $xmlRoot->appendChild($domtree->createElement('set', $v->sqms_exam_set));
+            $xmlRoot->appendChild($domtree->createElement('version', $v->sqms_exam_version));
+            $xmlRoot->appendChild($domtree->createElement('SampleSet', $v->sqms_exam_version_sample_set));
+            $xmlRoot->appendChild($domtree->createElement('id', rtrim($idset, "-")));
+
+
+            $xmlRoot->appendChild($domtree->createElement('questionTotal', $numberOfQuestionTotalNumber));
+
+            $i++;
+        }
+
+        // ADD COMMENT IN QUIZ
+        $commentlink = "\n \"examName \" : " . "\"" . $v->sqms_exam_version_name . "\" \n";
+        $commentlink .= "\"set \" : " . $v->sqms_exam_set . " \n";
+        $commentlink .= "\"version \" : " . $v->sqms_exam_version . " \n";
+        $commentlink .= "\"SampleSet \" : " . $v->sqms_exam_version_sample_set . " \n";
+        $commentlink .= "\"id \" : " . "\"" . rtrim($idset, "-") . "\" \n";
+        $commentlink .= "\"questionTotal \" : " . $numberOfQuestionTotalNumber . " \n";
+
+        $comment = $domtree->createComment($commentlink);
+        $xmlRoot->appendChild($comment);
+
+
+        if( $numberOfQuestionTotalNumber > 0 ){
+            $numberOfQuestionTotalExam = DB::select("CALL examquestions('" . rtrim($idvcsv, ", ") . "')");
+
+            foreach ($numberOfQuestionTotalExam as $k => $v) {
+
+                $sprint_sqms_question_id = sprintf("%010d", $v->sqms_question_id);
+                $qarr['question_id'] = $sprint_sqms_question_id;
+                $qarr['question_text'] = $v->question;
+                $qarr['answers'] = [];
+                $qarr['answersSelected'] = [];
+
+                $question_question = $v->question;
+
+                $answer_is_sprint = '';
+                $listanswers = DB::select("CALL listanswers($v->sqms_exam_version_id,$v->sqms_question_id)");
+                if (count($listanswers) > 0) {
+                    foreach ($listanswers as $k => $v) {
+                        $answer_is_sprint .= '-' . sprintf("%010d", $v->sqms_answer_id);
+                    }
+                }
+
+                // QUESTION
+                $currentTrack = $domtree->createElement("question");
+                $currentTrack = $xmlRoot->appendChild($currentTrack);
+                $type = $domtree->createAttribute("type");
+                $currentTrack->appendChild($type);
+                $multichoiseset = $domtree->createTextNode("multichoiceset");
+                $type->appendChild($multichoiseset);
+
+                // NAME
+                $name = $currentTrack->appendChild($domtree->createElement('name'));
+                $text = $domtree->createElement("text");
+                $name->appendChild($text);
+                $text->appendChild($domtree->createCDATASection($sprint_sqms_question_id . $answer_is_sprint));
+
+                // QUESTIONTEXT
+                $questiontext = $currentTrack->appendChild($domtree->createElement('questiontext'));
+                $format = $domtree->createAttribute("format");
+                $questiontext->appendChild($format);
+                $html = $domtree->createTextNode("html");
+                $format->appendChild($html);
+
+                $text = $questiontext->appendChild($domtree->createElement("text"));
+                $text->appendChild($domtree->createCDATASection($question_question));
+
+                // ANSWER
+                if (count($listanswers) > 0) {
+                    foreach ($listanswers as $k => $v) {
+
+                        $answer = $currentTrack->appendChild($domtree->createElement('answer'));
+                        $fraction = $domtree->createAttribute("fraction");
+                        $answer->appendChild($fraction);
+                        $numberfraction = $domtree->createTextNode("100.00000");
+                        $fraction->appendChild($numberfraction);
+
+                        $text = $answer->appendChild($domtree->createElement("text"));
+                        $text->appendChild($domtree->createCDATASection($v->answer));
+
+                    }
+                }
+            }
+
+            $currentTrack->appendChild($domtree->createElement('shuffleanswers', 1));
+            $currentTrack->appendChild($domtree->createElement('single', false));
+            $currentTrack->appendChild($domtree->createElement('answernumbering', 'abc'));
+        }
+
+        return $domtree->saveXML();
+    }
+
+    /**
+     * Used to process data when there are multiple exams
+     *
+     * @param $data
+     * @param $hash_salt
+     * @param $successpercent
+     * @param $nameOfExam
+     * @param $plannedDuration
+     * @return \Illuminate\Http\JsonResponse
+     */
+    protected function showMore($data, $hash_salt, $successpercent, $nameOfExam, $plannedDuration)
     {
         $idvcsv = '';
         foreach ($data as $k => $v) {
@@ -88,17 +358,13 @@ class SqmsExamVersionController extends Controller
 
     }
 
-    protected function striphtml($value){
-
-        $allowed = "<div><span><pre><p><br><hr><hgroup><h1><h2><h3><h4><h5><h6>";
-        $allowed .= "<ul><ol><li><dl><dt><dd><strong><em><b><i>";
-        $allowed .= "<img><a><abbr><address><blockquote><area><audio><video>";
-        $allowed .= "<caption><table><tbody><td><tfoot><th><thead><tr><sup><sub>";
-
-        return  html_entity_decode(strip_tags($value,$allowed));
-
-    }
-
+    /**
+     * Generating XML when there are multiple exams
+     *
+     * @param $data
+     * @param $hash_salt
+     * @return string
+     */
     protected function generateXMLMore($data, $hash_salt)
     {
         $idvcsv = '';
@@ -225,195 +491,21 @@ class SqmsExamVersionController extends Controller
         return $domtree->saveXML();
     }
 
-    public function show(Sqms_exam_version $sqms_exam_version, Request $request)
-    {
-        $datafull = $request->all();
-        $data = $datafull["data"];
-        $hash_salt = strtoupper($datafull["hash_salt"]);
-        $nameOfExam = trim($datafull["nameofexam"]);
-        $savedata = $datafull["savedata"];
-        $successpercent = (int) $datafull["successpercent"];
-        $plannedDuration = (int) $datafull["plannedDuration"];
-
-        if (!$hash_salt) {
-            return response()->json([
-                'message' => 'No hash_salt, please add one',
-                'status' => false
-            ]);
-            die;
-        }
-
-        if (!$successpercent) {
-            return response()->json([
-                'message' => 'No success percent, please add one',
-                'status' => false
-            ]);
-            die;
-        }
-
-        if (!$nameOfExam) {
-            return response()->json([
-                'message' => 'No name of exam, please add one',
-                'status' => false
-            ]);
-            die;
-        }
-
-        if (!$plannedDuration) {
-            return response()->json([
-                'message' => 'No exam planned duration, please add one',
-                'status' => false
-            ]);
-            die;
-        }
-
-        if (!$data) {
-            return response()->json([
-                'message' => 'No exam selected, please select one one',
-                'status' => false
-            ]);
-            die;
-        }
-
-//        $idvcsv = '';
-        $questionCount = $this->countQuestionsTotal($data);
-
-        if (count($data) > 1) {
-//            foreach ($data as $k => $v) {
-//                $onev = explode("|", $v);
-//                $idv[] = $onev[0];
-//                $idvcsv .= $onev[0] . ',';
-//            }
-//            $numberOfQuestionTotal = $this->numberOfQuestionTotal($idvcsv);
-
-            $json = $this->showMore($data, $hash_salt, $successpercent, $nameOfExam, $plannedDuration);
-            $xml = $this->generateXMLMore($data, $hash_salt);
-            $linkdofile = $this->saveToStorage($savedata, $json, $xml, $hash_salt);
-
-            return response()->json([
-                'json' => $json,
-                'xml' => $xml,
-                'message' => 'Ok',
-                'status' => true,
-                'savedata' => $linkdofile,
-                'questionCount' => $questionCount,
-            ]);
-
-
-        } else {
-//            $onev = explode("|", $data[0]);
-//            $idvcsv = $onev[0];
-//            $numberOfQuestionTotal = $this->numberOfQuestionTotal($idvcsv);
-
-            $json = $this->showOne($data, $hash_salt, $successpercent, $nameOfExam, $plannedDuration);
-            $xml = $this->generateXML($data, $hash_salt);
-            $linkdofile = $this->saveToStorage($savedata, $json, $xml, $hash_salt);
-
-            return response()->json([
-                'json' => $json,
-                'xml' => $xml,
-                'message' => 'Ok',
-                'status' => true,
-                'savedata' => $linkdofile,
-                'questionCount' => $questionCount,
-            ]);
-
-        }
-    }
-
-    protected function saveToStorage($savedata, $json, $xml, $hash_salt)
-    {
-        if ($savedata == 'download') {
-            $namefile = preg_replace('/[^a-zA-Z0-9]+/', '_', $json["ExamVersion_Name"]);
-            $publiclink = 'public/' . $namefile;
-            Storage::makeDirectory($publiclink);
-            Storage::put($publiclink . '/' . $namefile . '.json', json_encode($json));
-            Storage::put($publiclink . '/' . $namefile . '.xml', $xml);
-            Storage::put($publiclink . '/' . $namefile . '.salt', $hash_salt);
-
-            // save JSON Questions to Azure Blob
-            $this->saveToAzureBlob($publiclink,$namefile);
-
-            // save SALT to Azure Blob
-            $this->saveSaltToAzureBlob($publiclink,$namefile);
-
-        }  else {
-            $namefile = false;
-        }
-
-        return $namefile;
-    }
-
-    protected function saveSaltToAzureBlob($publiclink,$namefile){
-
-        $connectionString = "DefaultEndpointsProtocol=http;AccountName=".env('AZURE_ACCOUNT_NAME').";AccountKey=".env('AZURE_ACCOUNT_KEY');
-        //$blobRestProxy = ServicesBuilder::getInstance()->createBlobService($connectionString);
-        $blobClient = BlobRestProxy::createBlobService($connectionString);
-
-        $content = Storage::get($publiclink . '/' . $namefile . '.salt');
-        $blob_name = 'salt/'.$namefile.".salt";
-
-        try {
-            $options = new CreateBlockBlobOptions();
-            $contentType = 'text/plain';
-            $options->setContentType($contentType);
-            $blobClient->createBlockBlob(env('AZURE_CONTAINER'), $blob_name, $content,$options);
-        } catch(ServiceException $e){
-            $code = $e->getCode();
-            $error_message = $e->getMessage();
-            echo $code.": ".$error_message."<br />";
-        }
-
-    }
-
-    protected function saveToAzureBlob($publiclink,$namefile){
-
-        $connectionString = "DefaultEndpointsProtocol=http;AccountName=".env('AZURE_ACCOUNT_NAME').";AccountKey=".env('AZURE_ACCOUNT_KEY');
-        //$blobRestProxy = ServicesBuilder::getInstance()->createBlobService($connectionString);
-        $blobClient = BlobRestProxy::createBlobService($connectionString);
-
-
-        $content = Storage::get($publiclink . '/' . $namefile . '.json');
-        $blob_name = $namefile.".json";
-
-        try {
-            $options = new CreateBlockBlobOptions();
-            $contentType = 'application/json';
-            $options->setContentType($contentType);
-            $blobClient->createBlockBlob(env('AZURE_CONTAINER'), $blob_name, $content,$options);
-        } catch(ServiceException $e){
-            $code = $e->getCode();
-            $error_message = $e->getMessage();
-            echo $code.": ".$error_message."<br />";
-        }
-
-    }
-
-    protected function countQuestionsTotal($data)
-    {
-        $idvcsv = '';
-        if( count($data) > 1 ){
-            foreach ($data as $k => $v) {
-                $onev = explode("|", $v);
-                $idv[] = $onev[0];
-                $idvcsv .= $onev[0] . ',';
-            }
-
-
-        } else {
-            $onev = explode("|", $data[0]);
-            $idvcsv = $onev[0];
-        }
-
-        return $this->numberOfQuestionTotal($idvcsv)[0]->questionTotal;
-
-    }
-
-    protected function numberOfQuestionTotal($idvcsv)
-    {
-        return DB::select("CALL countexams('" . rtrim($idvcsv, ", ") . "')");
-    }
-
+    /**
+     * Handles response output and question / answer parsing
+     *
+     * @param $idvcsv
+     * @param $examNamefull
+     * @param $idset
+     * @param $hash_salt
+     * @param $sqms_exam_set
+     * @param $sqms_exam_version
+     * @param $sqms_exam_version_sample_set
+     * @param $successpercent
+     * @param $nameOfExam
+     * @param $plannedDuration
+     * @return \Illuminate\Http\JsonResponse
+     */
     protected function showAdv($idvcsv, $examNamefull, $idset, $hash_salt, $sqms_exam_set, $sqms_exam_version, $sqms_exam_version_sample_set, $successpercent, $nameOfExam, $plannedDuration)
     {
 
@@ -461,16 +553,6 @@ class SqmsExamVersionController extends Controller
         $response["Exam_AnswerOptions"] = [];
 
         $tren = [];
-
-
-        //Here we will DD for time beeing
-        //
-        $response["DD_response_start"] = '----------------------------';
-        $response["DD_response_content_1"] = $numberOfQuestionTotal;
-        $response["DD_response_content_2"] = $numberOfQuestionTotalNumber;
-        $response["DD_response_content_3"] = $idvcsv;
-        $response["DD_response_content_3"] = $idvcsv;
-        $response["DD_response_end"] = '----------------------------';
 
         if( $numberOfQuestionTotalNumber > 0 ){
             $numberOfQuestionTotalExam = DB::select("CALL examquestions('" . rtrim($idvcsv, ", ") . "')");
@@ -550,155 +632,129 @@ class SqmsExamVersionController extends Controller
 
     }
 
-    protected function showOne($data, $hash_salt, $successpercent, $nameOfExam, $plannedDuration)
+    /**
+     * Saves data locally
+     *
+     * @param $savedata
+     * @param $json
+     * @param $xml
+     * @param $hash_salt
+     * @return bool|string|string[]|null
+     */
+    protected function saveToStorage($savedata, $json, $xml, $hash_salt)
     {
+        if ($savedata == 'download') {
+            $namefile = preg_replace('/[^a-zA-Z0-9]+/', '_', $json["ExamVersion_Name"]);
+            $publiclink = 'public/' . $namefile;
+            Storage::makeDirectory($publiclink);
+            Storage::put($publiclink . '/' . $namefile . '.json', json_encode($json));
+            Storage::put($publiclink . '/' . $namefile . '.xml', $xml);
+            Storage::put($publiclink . '/' . $namefile . '.salt', $hash_salt);
 
-        $onev = explode("|", $data[0]);
-        $idv = $onev[0];
-        $idvcsv = $onev[0];
+            // save JSON Questions to Azure Blob
+            $this->saveToAzureBlob($publiclink,$namefile);
 
-        $queryExams = DB::select("CALL selectOneExamSet($idv)");
-        //$queryExams = DB::table('sqms_exam_version')->where('sqms_exam_version_id', $idv)->get();
+            // save SALT to Azure Blob
+            $this->saveSaltToAzureBlob($publiclink,$namefile);
 
-        $idset = '';
-        $i = 0;
-
-        foreach ($queryExams as $k => $v) {
-            $examNamefull = $v->sqms_exam_version_name;
-            $sqms_exam_version_id = sprintf("%010d", $v->sqms_exam_version_id);
-            $sqms_exam_set = sprintf("%05d", $v->sqms_exam_set);
-            $sqms_exam_version = sprintf("%05d", $v->sqms_exam_version);
-            $sqms_exam_version_sample_set = $v->sqms_exam_version_sample_set;
-            $idset = $sqms_exam_version_id . '-' . $sqms_exam_set . '-' . $sqms_exam_version . '-' . $sqms_exam_version_sample_set . '-';
-            $i++;
+        }  else {
+            $namefile = false;
         }
 
-        return $this->showAdv($idvcsv, $examNamefull, $idset, $hash_salt, $v->sqms_exam_set, $v->sqms_exam_version, $sqms_exam_version_sample_set, $successpercent, $nameOfExam, $plannedDuration);
+        return $namefile;
+    }
+
+    /**
+     * Saves salt on server
+     *
+     * @param $publiclink
+     * @param $namefile
+     */
+    protected function saveSaltToAzureBlob($publiclink,$namefile){
+
+        $connectionString = "DefaultEndpointsProtocol=http;AccountName=".env('AZURE_ACCOUNT_NAME').";AccountKey=".env('AZURE_ACCOUNT_KEY');
+        //$blobRestProxy = ServicesBuilder::getInstance()->createBlobService($connectionString);
+        $blobClient = BlobRestProxy::createBlobService($connectionString);
+
+        $content = Storage::get($publiclink . '/' . $namefile . '.salt');
+        $blob_name = 'salt/'.$namefile.".salt";
+
+        try {
+            $options = new CreateBlockBlobOptions();
+            $contentType = 'text/plain';
+            $options->setContentType($contentType);
+            $blobClient->createBlockBlob(env('AZURE_CONTAINER'), $blob_name, $content,$options);
+        } catch(ServiceException $e){
+            $code = $e->getCode();
+            $error_message = $e->getMessage();
+            echo $code.": ".$error_message."<br />";
+        }
 
     }
 
-    protected function generateXML($data, $hash_salt)
+    /**
+     * Saves exam on server
+     *
+     * @param $publiclink
+     * @param $namefile
+     */
+    protected function saveToAzureBlob($publiclink,$namefile){
+
+        $connectionString = "DefaultEndpointsProtocol=http;AccountName=".env('AZURE_ACCOUNT_NAME').";AccountKey=".env('AZURE_ACCOUNT_KEY');
+        //$blobRestProxy = ServicesBuilder::getInstance()->createBlobService($connectionString);
+        $blobClient = BlobRestProxy::createBlobService($connectionString);
+
+
+        $content = Storage::get($publiclink . '/' . $namefile . '.json');
+        $blob_name = $namefile.".json";
+
+        try {
+            $options = new CreateBlockBlobOptions();
+            $contentType = 'application/json';
+            $options->setContentType($contentType);
+            $blobClient->createBlockBlob(env('AZURE_CONTAINER'), $blob_name, $content,$options);
+        } catch(ServiceException $e){
+            $code = $e->getCode();
+            $error_message = $e->getMessage();
+            echo $code.": ".$error_message."<br />";
+        }
+
+    }
+
+
+    protected function striphtml($value){
+
+        $allowed = "<div><span><pre><p><br><hr><hgroup><h1><h2><h3><h4><h5><h6>";
+        $allowed .= "<ul><ol><li><dl><dt><dd><strong><em><b><i>";
+        $allowed .= "<img><a><abbr><address><blockquote><area><audio><video>";
+        $allowed .= "<caption><table><tbody><td><tfoot><th><thead><tr><sup><sub>";
+
+        return  html_entity_decode(strip_tags($value,$allowed));
+
+    }
+
+    protected function numberOfQuestionTotal($idvcsv)
     {
+        return DB::select("CALL countexams('" . rtrim($idvcsv, ", ") . "')");
+    }
 
+    protected function countQuestionsTotal($data)
+    {
         $idvcsv = '';
-        foreach ($data as $k => $v) {
-            $onev = explode("|", $v);
-            $idv[] = $onev[0];
-            $idvcsv .= $onev[0] . ',';
-        }
-
-        $queryExams = DB::table(self::$tableName)->where('sqms_exam_version_id', $idv)->get();
-        //$queryExams = DB::table('sqms_exam_version')->where('sqms_exam_version_id', $idv)->get();
-
-
-        $domtree = new \DOMDocument('1.0', 'UTF-8');
-        $xmlRoot = $domtree->createElement("quiz");
-        $xmlRoot = $domtree->appendChild($xmlRoot);
-
-        $idset = '';
-        $i = 0;
-
-        $numberOfQuestionTotal = $this->numberOfQuestionTotal($idvcsv);
-        $numberOfQuestionTotalNumber = $numberOfQuestionTotal[0]->questionTotal;
-
-        foreach ($queryExams as $k => $v) {
-            $sqms_exam_version_id = sprintf("%010d", $v->sqms_exam_version_id);
-            $sqms_exam_set = sprintf("%05d", $v->sqms_exam_set);
-            $sqms_exam_version = sprintf("%05d", $v->sqms_exam_version);
-            $sqms_exam_version_sample_set = $v->sqms_exam_version_sample_set;
-            $idset = $sqms_exam_version_id . '-' . $sqms_exam_set . '-' . $sqms_exam_version . '-' . $sqms_exam_version_sample_set . '-';
-
-            $xmlRoot->appendChild($domtree->createElement('examName', $v->sqms_exam_version_name));
-            $xmlRoot->appendChild($domtree->createElement('set', $v->sqms_exam_set));
-            $xmlRoot->appendChild($domtree->createElement('version', $v->sqms_exam_version));
-            $xmlRoot->appendChild($domtree->createElement('SampleSet', $v->sqms_exam_version_sample_set));
-            $xmlRoot->appendChild($domtree->createElement('id', rtrim($idset, "-")));
-
-
-            $xmlRoot->appendChild($domtree->createElement('questionTotal', $numberOfQuestionTotalNumber));
-
-            $i++;
-        }
-
-        // ADD COMMENT IN QUIZ
-        $commentlink = "\n \"examName \" : " . "\"" . $v->sqms_exam_version_name . "\" \n";
-        $commentlink .= "\"set \" : " . $v->sqms_exam_set . " \n";
-        $commentlink .= "\"version \" : " . $v->sqms_exam_version . " \n";
-        $commentlink .= "\"SampleSet \" : " . $v->sqms_exam_version_sample_set . " \n";
-        $commentlink .= "\"id \" : " . "\"" . rtrim($idset, "-") . "\" \n";
-        $commentlink .= "\"questionTotal \" : " . $numberOfQuestionTotalNumber . " \n";
-
-        $comment = $domtree->createComment($commentlink);
-        $xmlRoot->appendChild($comment);
-
-
-        if( $numberOfQuestionTotalNumber > 0 ){
-            $numberOfQuestionTotalExam = DB::select("CALL examquestions('" . rtrim($idvcsv, ", ") . "')");
-
-            foreach ($numberOfQuestionTotalExam as $k => $v) {
-
-                $sprint_sqms_question_id = sprintf("%010d", $v->sqms_question_id);
-                $qarr['question_id'] = $sprint_sqms_question_id;
-                $qarr['question_text'] = $v->question;
-                $qarr['answers'] = [];
-                $qarr['answersSelected'] = [];
-
-                $question_question = $v->question;
-
-                $answer_is_sprint = '';
-                $listanswers = DB::select("CALL listanswers($v->sqms_exam_version_id,$v->sqms_question_id)");
-                if (count($listanswers) > 0) {
-                    foreach ($listanswers as $k => $v) {
-                        $answer_is_sprint .= '-' . sprintf("%010d", $v->sqms_answer_id);
-                    }
-                }
-
-                // QUESTION
-                $currentTrack = $domtree->createElement("question");
-                $currentTrack = $xmlRoot->appendChild($currentTrack);
-                $type = $domtree->createAttribute("type");
-                $currentTrack->appendChild($type);
-                $multichoiseset = $domtree->createTextNode("multichoiceset");
-                $type->appendChild($multichoiseset);
-
-                // NAME
-                $name = $currentTrack->appendChild($domtree->createElement('name'));
-                $text = $domtree->createElement("text");
-                $name->appendChild($text);
-                $text->appendChild($domtree->createCDATASection($sprint_sqms_question_id . $answer_is_sprint));
-
-                // QUESTIONTEXT
-                $questiontext = $currentTrack->appendChild($domtree->createElement('questiontext'));
-                $format = $domtree->createAttribute("format");
-                $questiontext->appendChild($format);
-                $html = $domtree->createTextNode("html");
-                $format->appendChild($html);
-
-                $text = $questiontext->appendChild($domtree->createElement("text"));
-                $text->appendChild($domtree->createCDATASection($question_question));
-
-                // ANSWER
-                if (count($listanswers) > 0) {
-                    foreach ($listanswers as $k => $v) {
-
-                        $answer = $currentTrack->appendChild($domtree->createElement('answer'));
-                        $fraction = $domtree->createAttribute("fraction");
-                        $answer->appendChild($fraction);
-                        $numberfraction = $domtree->createTextNode("100.00000");
-                        $fraction->appendChild($numberfraction);
-
-                        $text = $answer->appendChild($domtree->createElement("text"));
-                        $text->appendChild($domtree->createCDATASection($v->answer));
-
-                    }
-                }
+        if( count($data) > 1 ){
+            foreach ($data as $k => $v) {
+                $onev = explode("|", $v);
+                $idv[] = $onev[0];
+                $idvcsv .= $onev[0] . ',';
             }
 
-            $currentTrack->appendChild($domtree->createElement('shuffleanswers', 1));
-            $currentTrack->appendChild($domtree->createElement('single', false));
-            $currentTrack->appendChild($domtree->createElement('answernumbering', 'abc'));
+
+        } else {
+            $onev = explode("|", $data[0]);
+            $idvcsv = $onev[0];
         }
 
-        return $domtree->saveXML();
+        return $this->numberOfQuestionTotal($idvcsv)[0]->questionTotal;
+
     }
 }
