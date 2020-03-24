@@ -167,6 +167,7 @@ class SqmsExamVersionController extends Controller
         //$queryExams = DB::table('sqms_exam_version')->where('sqms_exam_version_id', $idv)->get();
 
         $idset = '';
+        $sqms_exam_version_id_set = '';
         $i = 0;
 
         foreach ($queryExams as $k => $v) {
@@ -175,11 +176,12 @@ class SqmsExamVersionController extends Controller
             $sqms_exam_set = sprintf("%05d", $v->sqms_exam_set);
             $sqms_exam_version = sprintf("%05d", $v->sqms_exam_version);
             $sqms_exam_version_sample_set = $v->sqms_exam_version_sample_set;
+            $sqms_exam_version_id_set = $sqms_exam_version_id;
             $idset = $sqms_exam_version_id . '-' . $sqms_exam_set . '-' . $sqms_exam_version . '-' . $sqms_exam_version_sample_set . '-';
             $i++;
         }
 
-        return $this->showAdv($idvcsv, $examNamefull, $idset, $hash_salt, $v->sqms_exam_set, $v->sqms_exam_version, $sqms_exam_version_sample_set, $successpercent, $nameOfExam, $plannedDuration);
+        return $this->showAdv($idvcsv, $examNamefull, $sqms_exam_version_id_set, $idset, $hash_salt, $v->sqms_exam_set, $v->sqms_exam_version, $sqms_exam_version_sample_set, $successpercent, $nameOfExam, $plannedDuration);
 
     }
 
@@ -340,6 +342,7 @@ class SqmsExamVersionController extends Controller
 
         $examNamefull = "COMBI ";
         $idset = '';
+        $sqms_exam_version_id_set = '';
         $i = 0;
 
         foreach ($queryExams as $k => $v) {
@@ -350,11 +353,12 @@ class SqmsExamVersionController extends Controller
             $sqms_exam_set = sprintf("%05d", $v->sqms_exam_set);
             $sqms_exam_version = sprintf("%05d", $v->sqms_exam_version);
             $sqms_exam_version_sample_set = $v->sqms_exam_version_sample_set;
+            $sqms_exam_version_id_set .= $sqms_exam_version_id;
             $idset .= $sqms_exam_version_id . '-' . $sqms_exam_set . '-' . $sqms_exam_version . '-' . $sqms_exam_version_sample_set . '-';
             $i++;
         }
 
-        return $this->showAdv($idvcsv, $examNamefull, $idset, $hash_salt, $v->sqms_exam_set, $v->sqms_exam_version, $sqms_exam_version_sample_set, $successpercent, $nameOfExam, $plannedDuration);
+        return $this->showAdv($idvcsv, $examNamefull, $sqms_exam_version_id_set, $idset, $hash_salt, $v->sqms_exam_set, $v->sqms_exam_version, $sqms_exam_version_sample_set, $successpercent, $nameOfExam, $plannedDuration);
 
     }
 
@@ -506,7 +510,7 @@ class SqmsExamVersionController extends Controller
      * @param $plannedDuration
      * @return \Illuminate\Http\JsonResponse
      */
-    protected function showAdv($idvcsv, $examNamefull, $idset, $hash_salt, $sqms_exam_set, $sqms_exam_version, $sqms_exam_version_sample_set, $successpercent, $nameOfExam, $plannedDuration)
+    protected function showAdv($idvcsv, $examNamefull, $sqms_exam_version_id_set, $idset, $hash_salt, $sqms_exam_set, $sqms_exam_version, $sqms_exam_version_sample_set, $successpercent, $nameOfExam, $plannedDuration)
     {
 
         $numberOfQuestionTotal = $this->numberOfQuestionTotal($idvcsv);
@@ -516,7 +520,7 @@ class SqmsExamVersionController extends Controller
 
 
         $response["ExamVersion_ID"] = "";
-        $response["ExamVersion_EXTERNAL_ID"] = rand(10,100000);
+        $response["ExamVersion_EXTERNAL_ID"] = $sqms_exam_version_id_set;
         $response["ExamVersion_Name"] = rtrim($examNamefull, ", ");
         $response["ExamVersion_CustomName"] = $nameOfExam;
         $response["ExamVersion_Set"] = $sqms_exam_set;
