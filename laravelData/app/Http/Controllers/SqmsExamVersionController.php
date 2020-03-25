@@ -55,7 +55,279 @@ class SqmsExamVersionController extends Controller
         return response()->json(config('constants.hash_salt'));
     }
 
-    protected function  showMore($data, $hash_salt, $successpercent, $nameOfExam)
+    /**
+     * Endpoint for handling sent data
+     *
+     * @param \App\Sqms_exam_version $sqms_exam_version
+     * @param \Illuminate\Http\Request $request
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function show(Sqms_exam_version $sqms_exam_version, Request $request)
+    {
+        $datafull = $request->all();
+        $data = $datafull["data"];
+        $hash_salt = strtoupper($datafull["hash_salt"]);
+        $nameOfExam = trim($datafull["nameofexam"]);
+        $savedata = $datafull["savedata"];
+        $successpercent = (int) $datafull["successpercent"];
+        $plannedDuration = (int) $datafull["plannedDuration"];
+
+        if (!$hash_salt) {
+            return response()->json([
+                'message' => 'No hash_salt, please add one',
+                'status' => false
+            ]);
+            die;
+        }
+
+        if (!$successpercent) {
+            return response()->json([
+                'message' => 'No success percent, please add one',
+                'status' => false
+            ]);
+            die;
+        }
+
+        if (!$nameOfExam) {
+            return response()->json([
+                'message' => 'No name of exam, please add one',
+                'status' => false
+            ]);
+            die;
+        }
+
+        if (!$plannedDuration) {
+            return response()->json([
+                'message' => 'No exam planned duration, please add one',
+                'status' => false
+            ]);
+            die;
+        }
+
+        if (!$data) {
+            return response()->json([
+                'message' => 'No exam selected, please select one one',
+                'status' => false
+            ]);
+            die;
+        }
+
+        $questionCount = $this->countQuestionsTotal($data);
+
+        if (count($data) > 1) {
+            $json = $this->showMore($data, $hash_salt, $successpercent, $nameOfExam, $plannedDuration);
+            $xml = $this->generateXMLMore($data, $hash_salt);
+            $linkdofile = $this->saveToStorage($savedata, $json, $xml, $hash_salt);
+
+            return response()->json([
+                'json' => $json,
+                'xml' => $xml,
+                'message' => 'Ok',
+                'status' => true,
+                'savedata' => $linkdofile,
+                'questionCount' => $questionCount,
+            ]);
+
+
+        } else {
+            $json = $this->showOne($data, $hash_salt, $successpercent, $nameOfExam, $plannedDuration);
+            $xml = $this->generateXML($data, $hash_salt);
+            $linkdofile = $this->saveToStorage($savedata, $json, $xml, $hash_salt);
+
+            return response()->json([
+                'json' => $json,
+                'xml' => $xml,
+                'message' => 'Ok',
+                'status' => true,
+                'savedata' => $linkdofile,
+                'questionCount' => $questionCount,
+            ]);
+
+        }
+    }
+
+    /**
+     * Used to process data when there is only one exam
+     *
+     * @param $data
+     * @param $hash_salt
+     * @param $successpercent
+     * @param $nameOfExam
+     * @param $plannedDuration
+     * @return \Illuminate\Http\JsonResponse
+     */
+    protected function showOne($data, $hash_salt, $successpercent, $nameOfExam, $plannedDuration)
+    {
+
+        $onev = explode("|", $data[0]);
+        $idv = $onev[0];
+        $idvcsv = $onev[0];
+
+        $queryExams = DB::select("CALL selectOneExamSet($idv)");
+        //$queryExams = DB::table('sqms_exam_version')->where('sqms_exam_version_id', $idv)->get();
+
+        $idset = '';
+        $sqms_exam_version_id_set = '';
+        $i = 0;
+
+        foreach ($queryExams as $k => $v) {
+            $examNamefull = $v->sqms_exam_version_name;
+            $sqms_exam_version_id = sprintf("%010d", $v->sqms_exam_version_id);
+            $sqms_exam_set = sprintf("%05d", $v->sqms_exam_set);
+            $sqms_exam_version = sprintf("%05d", $v->sqms_exam_version);
+            $sqms_exam_version_sample_set = $v->sqms_exam_version_sample_set;
+            $sqms_exam_version_id_set = $sqms_exam_version_id;
+            $idset = $sqms_exam_version_id . '-' . $sqms_exam_set . '-' . $sqms_exam_version . '-' . $sqms_exam_version_sample_set . '-';
+            $i++;
+        }
+
+        return $this->showAdv($idvcsv, $examNamefull, $sqms_exam_version_id_set, $idset, $hash_salt, $v->sqms_exam_set, $v->sqms_exam_version, $sqms_exam_version_sample_set, $successpercent, $nameOfExam, $plannedDuration);
+
+    }
+
+    /**
+     * Generating XML when there is only one exam
+     *
+     * @param $data
+     * @param $hash_salt
+     * @return string
+     */
+    protected function generateXML($data, $hash_salt)
+    {
+
+        $idvcsv = '';
+        foreach ($data as $k => $v) {
+            $onev = explode("|", $v);
+            $idv[] = $onev[0];
+            $idvcsv .= $onev[0] . ',';
+        }
+
+        $queryExams = DB::table(self::$tableName)->where('sqms_exam_version_id', $idv)->get();
+        //$queryExams = DB::table('sqms_exam_version')->where('sqms_exam_version_id', $idv)->get();
+
+
+        $domtree = new \DOMDocument('1.0', 'UTF-8');
+        $xmlRoot = $domtree->createElement("quiz");
+        $xmlRoot = $domtree->appendChild($xmlRoot);
+
+        $idset = '';
+        $i = 0;
+
+        $numberOfQuestionTotal = $this->numberOfQuestionTotal($idvcsv);
+        $numberOfQuestionTotalNumber = $numberOfQuestionTotal[0]->questionTotal;
+
+        foreach ($queryExams as $k => $v) {
+            $sqms_exam_version_id = sprintf("%010d", $v->sqms_exam_version_id);
+            $sqms_exam_set = sprintf("%05d", $v->sqms_exam_set);
+            $sqms_exam_version = sprintf("%05d", $v->sqms_exam_version);
+            $sqms_exam_version_sample_set = $v->sqms_exam_version_sample_set;
+            $idset = $sqms_exam_version_id . '-' . $sqms_exam_set . '-' . $sqms_exam_version . '-' . $sqms_exam_version_sample_set . '-';
+
+            $xmlRoot->appendChild($domtree->createElement('examName', $v->sqms_exam_version_name));
+            $xmlRoot->appendChild($domtree->createElement('set', $v->sqms_exam_set));
+            $xmlRoot->appendChild($domtree->createElement('version', $v->sqms_exam_version));
+            $xmlRoot->appendChild($domtree->createElement('SampleSet', $v->sqms_exam_version_sample_set));
+            $xmlRoot->appendChild($domtree->createElement('id', rtrim($idset, "-")));
+
+
+            $xmlRoot->appendChild($domtree->createElement('questionTotal', $numberOfQuestionTotalNumber));
+
+            $i++;
+        }
+
+        // ADD COMMENT IN QUIZ
+        $commentlink = "\n \"examName \" : " . "\"" . $v->sqms_exam_version_name . "\" \n";
+        $commentlink .= "\"set \" : " . $v->sqms_exam_set . " \n";
+        $commentlink .= "\"version \" : " . $v->sqms_exam_version . " \n";
+        $commentlink .= "\"SampleSet \" : " . $v->sqms_exam_version_sample_set . " \n";
+        $commentlink .= "\"id \" : " . "\"" . rtrim($idset, "-") . "\" \n";
+        $commentlink .= "\"questionTotal \" : " . $numberOfQuestionTotalNumber . " \n";
+
+        $comment = $domtree->createComment($commentlink);
+        $xmlRoot->appendChild($comment);
+
+
+        if( $numberOfQuestionTotalNumber > 0 ){
+            $numberOfQuestionTotalExam = DB::select("CALL examquestions('" . rtrim($idvcsv, ", ") . "')");
+
+            foreach ($numberOfQuestionTotalExam as $k => $v) {
+
+                $sprint_sqms_question_id = sprintf("%010d", $v->sqms_question_id);
+                $qarr['question_id'] = $sprint_sqms_question_id;
+                $qarr['question_text'] = $v->question;
+                $qarr['answers'] = [];
+                $qarr['answersSelected'] = [];
+
+                $question_question = $v->question;
+
+                $answer_is_sprint = '';
+                $listanswers = DB::select("CALL listanswers($v->sqms_exam_version_id,$v->sqms_question_id)");
+                if (count($listanswers) > 0) {
+                    foreach ($listanswers as $k => $v) {
+                        $answer_is_sprint .= '-' . sprintf("%010d", $v->sqms_answer_id);
+                    }
+                }
+
+                // QUESTION
+                $currentTrack = $domtree->createElement("question");
+                $currentTrack = $xmlRoot->appendChild($currentTrack);
+                $type = $domtree->createAttribute("type");
+                $currentTrack->appendChild($type);
+                $multichoiseset = $domtree->createTextNode("multichoiceset");
+                $type->appendChild($multichoiseset);
+
+                // NAME
+                $name = $currentTrack->appendChild($domtree->createElement('name'));
+                $text = $domtree->createElement("text");
+                $name->appendChild($text);
+                $text->appendChild($domtree->createCDATASection($sprint_sqms_question_id . $answer_is_sprint));
+
+                // QUESTIONTEXT
+                $questiontext = $currentTrack->appendChild($domtree->createElement('questiontext'));
+                $format = $domtree->createAttribute("format");
+                $questiontext->appendChild($format);
+                $html = $domtree->createTextNode("html");
+                $format->appendChild($html);
+
+                $text = $questiontext->appendChild($domtree->createElement("text"));
+                $text->appendChild($domtree->createCDATASection($question_question));
+
+                // ANSWER
+                if (count($listanswers) > 0) {
+                    foreach ($listanswers as $k => $v) {
+
+                        $answer = $currentTrack->appendChild($domtree->createElement('answer'));
+                        $fraction = $domtree->createAttribute("fraction");
+                        $answer->appendChild($fraction);
+                        $numberfraction = $domtree->createTextNode("100.00000");
+                        $fraction->appendChild($numberfraction);
+
+                        $text = $answer->appendChild($domtree->createElement("text"));
+                        $text->appendChild($domtree->createCDATASection($v->answer));
+
+                    }
+                }
+            }
+
+            $currentTrack->appendChild($domtree->createElement('shuffleanswers', 1));
+            $currentTrack->appendChild($domtree->createElement('single', false));
+            $currentTrack->appendChild($domtree->createElement('answernumbering', 'abc'));
+        }
+
+        return $domtree->saveXML();
+    }
+
+    /**
+     * Used to process data when there are multiple exams
+     *
+     * @param $data
+     * @param $hash_salt
+     * @param $successpercent
+     * @param $nameOfExam
+     * @param $plannedDuration
+     * @return \Illuminate\Http\JsonResponse
+     */
+    protected function showMore($data, $hash_salt, $successpercent, $nameOfExam, $plannedDuration)
     {
         $idvcsv = '';
         foreach ($data as $k => $v) {
@@ -70,6 +342,7 @@ class SqmsExamVersionController extends Controller
 
         $examNamefull = "COMBI ";
         $idset = '';
+        $sqms_exam_version_id_set = '';
         $i = 0;
 
         foreach ($queryExams as $k => $v) {
@@ -80,25 +353,22 @@ class SqmsExamVersionController extends Controller
             $sqms_exam_set = sprintf("%05d", $v->sqms_exam_set);
             $sqms_exam_version = sprintf("%05d", $v->sqms_exam_version);
             $sqms_exam_version_sample_set = $v->sqms_exam_version_sample_set;
+            $sqms_exam_version_id_set .= $sqms_exam_version_id;
             $idset .= $sqms_exam_version_id . '-' . $sqms_exam_set . '-' . $sqms_exam_version . '-' . $sqms_exam_version_sample_set . '-';
             $i++;
         }
 
-        return $this->showAdv($idvcsv, $examNamefull, $idset, $hash_salt, $v->sqms_exam_set, $v->sqms_exam_version, $sqms_exam_version_sample_set, $successpercent, $nameOfExam);
+        return $this->showAdv($idvcsv, $examNamefull, $sqms_exam_version_id_set, $idset, $hash_salt, $v->sqms_exam_set, $v->sqms_exam_version, $sqms_exam_version_sample_set, $successpercent, $nameOfExam, $plannedDuration);
 
     }
 
-    protected function striphtml($value){
-
-        $allowed = "<div><span><pre><p><br><hr><hgroup><h1><h2><h3><h4><h5><h6>";
-        $allowed .= "<ul><ol><li><dl><dt><dd><strong><em><b><i>";
-        $allowed .= "<img><a><abbr><address><blockquote><area><audio><video>";
-        $allowed .= "<caption><table><tbody><td><tfoot><th><thead><tr><sup><sub>";
-
-        return  html_entity_decode(strip_tags($value,$allowed));
-
-    }
-
+    /**
+     * Generating XML when there are multiple exams
+     *
+     * @param $data
+     * @param $hash_salt
+     * @return string
+     */
     protected function generateXMLMore($data, $hash_salt)
     {
         $idvcsv = '';
@@ -138,8 +408,9 @@ class SqmsExamVersionController extends Controller
         $xmlRoot->appendChild($domtree->createElement('id', rtrim($idset, "-")));
 
         $numberOfQuestionTotal = $this->numberOfQuestionTotal($idvcsv);
+        $numberOfQuestionTotalNumber = $numberOfQuestionTotal[0]->questionTotal;
 
-        $xmlRoot->appendChild($domtree->createElement('questionTotal', $numberOfQuestionTotal[0]->questionTotal));
+        $xmlRoot->appendChild($domtree->createElement('questionTotal', $numberOfQuestionTotalNumber));
 
         // ADD COMMENT IN QUIZ
         $commentlink = "\n \"examName \" : " . "\"" . $v->sqms_exam_version_name . "\" \n";
@@ -147,142 +418,233 @@ class SqmsExamVersionController extends Controller
         $commentlink .= "\"version \" : " . $v->sqms_exam_version . " \n";
         $commentlink .= "\"SampleSet \" : " . $v->sqms_exam_version_sample_set . " \n";
         $commentlink .= "\"id \" : " . "\"" . rtrim($idset, "-") . "\" \n";
-        $commentlink .= "\"questionTotal \" : " . $numberOfQuestionTotal[0]->questionTotal . " \n";
+        $commentlink .= "\"questionTotal \" : " . $numberOfQuestionTotalNumber . " \n";
 
         $comment = $domtree->createComment($commentlink);
         $xmlRoot->appendChild($comment);
 
 
-        $numberOfQuestionTotalExam = DB::select("CALL examquestions('" . rtrim($idvcsv, ", ") . "')");
-        foreach ($numberOfQuestionTotalExam as $k => $v) {
+        if( $numberOfQuestionTotalNumber > 0 ){
+            $numberOfQuestionTotalExam = DB::select("CALL examquestions('" . rtrim($idvcsv, ", ") . "')");
 
-            $sprint_sqms_question_id = sprintf("%010d", $v->sqms_question_id);
-            $qarr['question_id'] = $sprint_sqms_question_id;
-            $qarr['question_text'] = $v->question;
-            $qarr['answers'] = [];
-            $qarr['answersSelected'] = [];
+            foreach ($numberOfQuestionTotalExam as $k => $v) {
 
-            $question_question = $v->question;
+                $sprint_sqms_question_id = sprintf("%010d", $v->sqms_question_id);
+                $qarr['question_id'] = $sprint_sqms_question_id;
+                $qarr['question_text'] = $v->question;
+                $qarr['answers'] = [];
+                $qarr['answersSelected'] = [];
 
-            $answer_is_sprint = '';
-            $listanswers = DB::select("CALL listanswers($v->sqms_exam_version_id,$v->sqms_question_id)");
-            if (count($listanswers) > 0) {
-                foreach ($listanswers as $k => $v) {
-                    $answer_is_sprint .= '-' . sprintf("%010d", $v->sqms_answer_id);
+                $question_question = $v->question;
+
+                $answer_is_sprint = '';
+                $listanswers = DB::select("CALL listanswers($v->sqms_exam_version_id,$v->sqms_question_id)");
+                if (count($listanswers) > 0) {
+                    foreach ($listanswers as $k => $v) {
+                        $answer_is_sprint .= '-' . sprintf("%010d", $v->sqms_answer_id);
+                    }
+                }
+
+                // QUESTION
+                $currentTrack = $domtree->createElement("question");
+                $currentTrack = $xmlRoot->appendChild($currentTrack);
+                $type = $domtree->createAttribute("type");
+                $currentTrack->appendChild($type);
+                $multichoiseset = $domtree->createTextNode("multichoiceset");
+                $type->appendChild($multichoiseset);
+
+                // NAME
+                $name = $currentTrack->appendChild($domtree->createElement('name'));
+                $text = $domtree->createElement("text");
+                $name->appendChild($text);
+                $text->appendChild($domtree->createCDATASection($sprint_sqms_question_id . $answer_is_sprint));
+
+                // QUESTIONTEXT
+                $questiontext = $currentTrack->appendChild($domtree->createElement('questiontext'));
+                $format = $domtree->createAttribute("format");
+                $questiontext->appendChild($format);
+                $html = $domtree->createTextNode("html");
+                $format->appendChild($html);
+
+                $text = $questiontext->appendChild($domtree->createElement("text"));
+                $text->appendChild($domtree->createCDATASection($question_question));
+
+                // ANSWER
+                if (count($listanswers) > 0) {
+                    foreach ($listanswers as $k => $v) {
+
+                        $answer = $currentTrack->appendChild($domtree->createElement('answer'));
+                        $fraction = $domtree->createAttribute("fraction");
+                        $answer->appendChild($fraction);
+                        $numberfraction = $domtree->createTextNode("100.00000");
+                        $fraction->appendChild($numberfraction);
+
+                        $text = $answer->appendChild($domtree->createElement("text"));
+                        $text->appendChild($domtree->createCDATASection($v->answer));
+
+                    }
                 }
             }
 
-            // QUESTION
-            $currentTrack = $domtree->createElement("question");
-            $currentTrack = $xmlRoot->appendChild($currentTrack);
-            $type = $domtree->createAttribute("type");
-            $currentTrack->appendChild($type);
-            $multichoiseset = $domtree->createTextNode("multichoiceset");
-            $type->appendChild($multichoiseset);
 
-            // NAME
-            $name = $currentTrack->appendChild($domtree->createElement('name'));
-            $text = $domtree->createElement("text");
-            $name->appendChild($text);
-            $text->appendChild($domtree->createCDATASection($sprint_sqms_question_id . $answer_is_sprint));
-
-            // QUESTIONTEXT
-            $questiontext = $currentTrack->appendChild($domtree->createElement('questiontext'));
-            $format = $domtree->createAttribute("format");
-            $questiontext->appendChild($format);
-            $html = $domtree->createTextNode("html");
-            $format->appendChild($html);
-
-            $text = $questiontext->appendChild($domtree->createElement("text"));
-            $text->appendChild($domtree->createCDATASection($question_question));
-
-            // ANSWER
-            if (count($listanswers) > 0) {
-                foreach ($listanswers as $k => $v) {
-
-                    $answer = $currentTrack->appendChild($domtree->createElement('answer'));
-                    $fraction = $domtree->createAttribute("fraction");
-                    $answer->appendChild($fraction);
-                    $numberfraction = $domtree->createTextNode("100.00000");
-                    $fraction->appendChild($numberfraction);
-
-                    $text = $answer->appendChild($domtree->createElement("text"));
-                    $text->appendChild($domtree->createCDATASection($v->answer));
-
-                }
-            }
+            $currentTrack->appendChild($domtree->createElement('shuffleanswers', 1));
+            $currentTrack->appendChild($domtree->createElement('single', false));
+            $currentTrack->appendChild($domtree->createElement('answernumbering', 'abc'));
         }
-
-        $currentTrack->appendChild($domtree->createElement('shuffleanswers', 1));
-        $currentTrack->appendChild($domtree->createElement('single', false));
-        $currentTrack->appendChild($domtree->createElement('answernumbering', 'abc'));
 
         return $domtree->saveXML();
     }
 
-    public function show(Sqms_exam_version $sqms_exam_version, Request $request)
+    /**
+     * Handles response output and question / answer parsing
+     *
+     * @param $idvcsv
+     * @param $examNamefull
+     * @param $idset
+     * @param $hash_salt
+     * @param $sqms_exam_set
+     * @param $sqms_exam_version
+     * @param $sqms_exam_version_sample_set
+     * @param $successpercent
+     * @param $nameOfExam
+     * @param $plannedDuration
+     * @return \Illuminate\Http\JsonResponse
+     */
+    protected function showAdv($idvcsv, $examNamefull, $sqms_exam_version_id_set, $idset, $hash_salt, $sqms_exam_set, $sqms_exam_version, $sqms_exam_version_sample_set, $successpercent, $nameOfExam, $plannedDuration)
     {
-        $datafull = $request->all();
-        $data = $datafull["data"];
-        $hash_salt = strtoupper($datafull["hash_salt"]);
-        $nameOfExam = trim($datafull["nameofexam"]);
-        $savedata = $datafull["savedata"];
-        $successpercent = (int) $datafull["successpercent"];
 
-        if (!$hash_salt) {
-            return response()->json([
-                'message' => 'No hash_salt, please add one',
-                'status' => false
-            ]);
-            die;
+        $numberOfQuestionTotal = $this->numberOfQuestionTotal($idvcsv);
+        $numberOfQuestionTotalNumber = $numberOfQuestionTotal[0]->questionTotal;
+
+        $ExamVersion_passingPoints = ceil($numberOfQuestionTotalNumber * $successpercent / 100);
+
+
+        $response["ExamVersion_ID"] = "";
+        $response["ExamVersion_EXTERNAL_ID"] = $sqms_exam_version_id_set;
+        $response["ExamVersion_Name"] = rtrim($examNamefull, ", ");
+        $response["ExamVersion_CustomName"] = $nameOfExam;
+        $response["ExamVersion_Set"] = $sqms_exam_set;
+        $response["ExamVersion_Version"] = $sqms_exam_version;
+        $response["ExamVersion_SampleSet"] = ($sqms_exam_version_sample_set) ? true : false;
+        $response["ExamVersion_QuestionNumber"] = "";
+        $response["Exam_SuccessPercent"] = $successpercent;
+        $response["ExamVersion_plannedDuration"] = $plannedDuration;
+        $response["ExamVersion_maxPoints"] = $numberOfQuestionTotalNumber;
+        $response["ExamVersion_passingPoints"] = $ExamVersion_passingPoints;
+        $response["ExamVersion_Language"] = "de";
+        $response["ExamVersion_Type"] = "static";
+        $response["BulkEvent_ID"] = "";
+        $response["BulkEvent_EXTERNAL_ID"] = "";
+        $response["Participant_ID"] = "";
+        $response["Participant_EXTERNAL_ID"] = "";
+        $response["Participant_MatriculationNumber"] = "";
+        $response["Participant_Firstname"] = "";
+        $response["Participant_Lastname"] = "";
+        $response["Participant_Expert"] = false;
+        $response["ExamEvent_ID"] = "";
+        $response["ExamEvent_EXTERNAL_ID"] = "";
+        $response["ExamEvent_GenerationTime"] = "";
+        $response["ExamEvent_ReadyTime"] = "";
+        $response["ExamEvent_StartTime"] = "";
+        $response["ExamEvent_EndTime"] = "";
+        $response["Exam_Started"] = false;
+        $response["Exam_Finished"] = false;
+        $response["Exam_FMR"] = "";
+        $response["Exam_Id"] = rtrim($idset, "-");
+        $response["Exam_Uid"] = "";
+        $response["Exam_QuestionIndex"] = 0;
+        $response["Exam_QuestionTotal"] = $numberOfQuestionTotalNumber;
+        $response["Exam_AnswerOptions"] = [];
+
+        $tren = [];
+
+        if( $numberOfQuestionTotalNumber > 0 ){
+            $numberOfQuestionTotalExam = DB::select("CALL examquestions('" . rtrim($idvcsv, ", ") . "')");
+
+            foreach ($numberOfQuestionTotalExam as $k => $v) {
+                $sprint_sqms_question_id = sprintf("%010d", $v->sqms_question_id);
+                $qarr['question_id'] = $sprint_sqms_question_id;
+                //$qarr['question_text'] = strip_tags(html_entity_decode($v->question, ENT_COMPAT | ENT_HTML401, 'UTF-8'),"<strong>");
+                //$qarr['question_text'] = strip_tags($v->question,"<strong>");
+                $string = rtrim($v->question, '</p>');
+                $string = ltrim($string, '<p>');
+                $qarr['question_text'] = $this->striphtml($string);
+                //$qarr['testindb'] = $v->question;
+
+
+
+                //$qarr['sqms_exam_version_id'] = $v->sqms_exam_version_id;
+                $qarr['answers'] = [];
+                $qarr['answersSelected'] = [];
+
+
+                //$numberOfQuestionTotal = DB::select("CALL examquestions('" . rtrim($idvcsv, ", ") . "')");
+
+                $ls = [];
+                $listanswers = DB::select("CALL listanswers($v->sqms_exam_version_id,$v->sqms_question_id)");
+                if (count($listanswers) > 0) {
+                    $varHashFirstNumber = true;  // remove line in prod
+                    $firstNumberforHash = '';
+                    foreach ($listanswers as $k => $v) {
+
+
+                        $answer_is_sprint_int = (int) $v->sqms_answer_id;
+                        $correct_answ = $v->correct;
+                        $answer_is_sprint = sprintf("%010d", $v->sqms_answer_id);
+                        $forls['answer_id'] = $answer_is_sprint;
+                        //$forls['answer_text'] = strip_tags(html_entity_decode($v->answer, ENT_COMPAT | ENT_HTML401, 'UTF-8'),"<strong>");
+                        //$forls['answer_text'] = strip_tags($v->answer,"<strong>");
+
+                        $string = rtrim($v->answer, '</p>');
+                        $string = ltrim($string, '<p>');
+                        $forls['answer_text'] = $this->striphtml($string);
+
+
+
+                        //$forls['correct'] = $correct_answ;
+
+                        if ($correct_answ == 1) {
+                            $firstNumberforHash .= $answer_is_sprint;
+                        }
+
+                        $answerHash = $firstNumberforHash . $hash_salt; //config('constants.hash_salt');
+
+
+                        array_push($ls, $forls);
+                    }
+
+                    if (!$firstNumberforHash) {
+                        return response()->json([
+                            'message' => 'No firstNumberforHash fix the dataBase -> must have one ore more correct answer : '.$answer_is_sprint_int,
+                            'status' => false
+                        ]);
+                        die;
+                    }
+
+                    $qarr['answers'] = $ls;
+                }
+                //$qarr['answersHashORG'] = "hash('sha512', $answerHash)"; // https://www.tools4noobs.com/online_php_functions/sha512/
+                $qarr['answersHash'] = hash('sha512', $answerHash);
+                //$qarr['answersHashBase64encode'] = base64_encode(hash('sha512', $answerHash));
+                array_push($tren, $qarr);
+            }
         }
 
-        if (!$successpercent) {
-            return response()->json([
-                'message' => 'No success percent, please add one',
-                'status' => false
-            ]);
-            die;
-        }
+        $response["examQuestions"] = $tren;
 
-        if (!$nameOfExam) {
-            return response()->json([
-                'message' => 'No name of exam, please add one',
-                'status' => false
-            ]);
-            die;
-        }
+        return $response;
 
-        if (count($data) > 1) {
-            $json = $this->showMore($data, $hash_salt, $successpercent, $nameOfExam);
-            $xml = $this->generateXMLMore($data, $hash_salt);
-            $linkdofile = $this->saveToStorage($savedata, $json, $xml, $hash_salt);
-
-            return response()->json([
-                'json' => $json,
-                'xml' => $xml,
-                'message' => 'Ok',
-                'status' => true,
-                'savedata' => $linkdofile
-            ]);
-
-
-        } else {
-            $json = $this->showOne($data, $hash_salt, $successpercent, $nameOfExam);
-            $xml = $this->generateXML($data, $hash_salt);
-            $linkdofile = $this->saveToStorage($savedata, $json, $xml, $hash_salt);
-
-            return response()->json([
-                'json' => $json,
-                'xml' => $xml,
-                'message' => 'Ok',
-                'status' => true,
-                'savedata' => $linkdofile
-            ]);
-
-        }
     }
 
+    /**
+     * Saves data locally
+     *
+     * @param $savedata
+     * @param $json
+     * @param $xml
+     * @param $hash_salt
+     * @return bool|string|string[]|null
+     */
     protected function saveToStorage($savedata, $json, $xml, $hash_salt)
     {
         if ($savedata == 'download') {
@@ -306,6 +668,12 @@ class SqmsExamVersionController extends Controller
         return $namefile;
     }
 
+    /**
+     * Saves salt on server
+     *
+     * @param $publiclink
+     * @param $namefile
+     */
     protected function saveSaltToAzureBlob($publiclink,$namefile){
 
         $connectionString = "DefaultEndpointsProtocol=http;AccountName=".env('AZURE_ACCOUNT_NAME').";AccountKey=".env('AZURE_ACCOUNT_KEY');
@@ -328,6 +696,12 @@ class SqmsExamVersionController extends Controller
 
     }
 
+    /**
+     * Saves exam on server
+     *
+     * @param $publiclink
+     * @param $namefile
+     */
     protected function saveToAzureBlob($publiclink,$namefile){
 
         $connectionString = "DefaultEndpointsProtocol=http;AccountName=".env('AZURE_ACCOUNT_NAME').";AccountKey=".env('AZURE_ACCOUNT_KEY');
@@ -351,277 +725,40 @@ class SqmsExamVersionController extends Controller
 
     }
 
+
+    protected function striphtml($value){
+
+        $allowed = "<div><span><pre><p><br><hr><hgroup><h1><h2><h3><h4><h5><h6>";
+        $allowed .= "<ul><ol><li><dl><dt><dd><strong><em><b><i>";
+        $allowed .= "<img><a><abbr><address><blockquote><area><audio><video>";
+        $allowed .= "<caption><table><tbody><td><tfoot><th><thead><tr><sup><sub>";
+
+        return  html_entity_decode(strip_tags($value,$allowed));
+
+    }
+
     protected function numberOfQuestionTotal($idvcsv)
     {
         return DB::select("CALL countexams('" . rtrim($idvcsv, ", ") . "')");
     }
 
-    protected function showAdv($idvcsv, $examNamefull, $idset, $hash_salt, $sqms_exam_set, $sqms_exam_version, $sqms_exam_version_sample_set, $successpercent, $nameOfExam)
+    protected function countQuestionsTotal($data)
     {
-
-        $numberOfQuestionTotal = $this->numberOfQuestionTotal($idvcsv);
-        $numberOfQuestionTotalNumber = $numberOfQuestionTotal[0]->questionTotal;
-
-        $ExamVersion_passingPoints = ceil($numberOfQuestionTotalNumber * $successpercent / 100);
-
-
-        $response["ExamVersion_ID"] = "";
-        $response["ExamVersion_EXTERNAL_ID"] = rand(10,100000);
-        $response["ExamVersion_Name"] = rtrim($examNamefull, ", ");
-        $response["ExamVersion_CustomName"] = $nameOfExam;
-        $response["ExamVersion_Set"] = $sqms_exam_set;
-        $response["ExamVersion_Version"] = $sqms_exam_version;
-        $response["ExamVersion_SampleSet"] = ($sqms_exam_version_sample_set) ? true : false;
-        $response["ExamVersion_QuestionNumber"] = "";
-        $response["Exam_SuccessPercent"] = $successpercent;
-        $response["ExamVersion_maxPoints"] = $numberOfQuestionTotalNumber;
-        $response["ExamVersion_passingPoints"] = $ExamVersion_passingPoints;
-        $response["ExamVersion_Language"] = "de";
-        $response["ExamVersion_Type"] = "static";
-        $response["BulkEvent_ID"] = "";
-        $response["BulkEvent_EXTERNAL_ID"] = "";
-        $response["Participant_ID"] = "";
-        $response["Participant_EXTERNAL_ID"] = "";
-        $response["Participant_MatriculationNumber"] = "";
-        $response["Participant_Firstname"] = "";
-        $response["Participant_Lastname"] = "";
-        $response["Participant_Expert"] = false;
-        $response["ExamEvent_ID"] = "";
-        $response["ExamEvent_EXTERNAL_ID"] = "";
-        $response["ExamEvent_GenerationTime"] = "";
-        $response["ExamEvent_ReadyTime"] = "";
-        $response["ExamEvent_StartTime"] = "";
-        $response["ExamEvent_EndTime"] = "";
-        $response["ExamVersion_plannedDuration"] = "";
-        $response["Exam_Started"] = false;
-        $response["Exam_Finished"] = false;
-        $response["Exam_FMR"] = "";
-        $response["Exam_Id"] = rtrim($idset, "-");
-        $response["Exam_Uid"] = "";
-        $response["Exam_QuestionIndex"] = 0;
-        $response["Exam_QuestionTotal"] = $numberOfQuestionTotalNumber;
-        $response["Exam_AnswerOptions"] = [];
-
-        $numberOfQuestionTotalExam = DB::select("CALL examquestions('" . rtrim($idvcsv, ", ") . "')");
-        $tren = [];
-        foreach ($numberOfQuestionTotalExam as $k => $v) {
-            $sprint_sqms_question_id = sprintf("%010d", $v->sqms_question_id);
-            $qarr['question_id'] = $sprint_sqms_question_id;
-            //$qarr['question_text'] = strip_tags(html_entity_decode($v->question, ENT_COMPAT | ENT_HTML401, 'UTF-8'),"<strong>");
-            //$qarr['question_text'] = strip_tags($v->question,"<strong>");
-            $string = rtrim($v->question, '</p>');
-            $string = ltrim($string, '<p>');
-            $qarr['question_text'] = $this->striphtml($string);
-            //$qarr['testindb'] = $v->question;
-
-
-
-            //$qarr['sqms_exam_version_id'] = $v->sqms_exam_version_id;
-            $qarr['answers'] = [];
-            $qarr['answersSelected'] = [];
-
-
-            //$numberOfQuestionTotal = DB::select("CALL examquestions('" . rtrim($idvcsv, ", ") . "')");
-
-            $ls = [];
-            $listanswers = DB::select("CALL listanswers($v->sqms_exam_version_id,$v->sqms_question_id)");
-            if (count($listanswers) > 0) {
-                $varHashFirstNumber = true;  // remove line in prod
-                $firstNumberforHash = '';
-                foreach ($listanswers as $k => $v) {
-
-
-                    $answer_is_sprint_int = (int) $v->sqms_answer_id;
-                    $correct_answ = $v->correct;
-                    $answer_is_sprint = sprintf("%010d", $v->sqms_answer_id);
-                    $forls['answer_id'] = $answer_is_sprint;
-                    //$forls['answer_text'] = strip_tags(html_entity_decode($v->answer, ENT_COMPAT | ENT_HTML401, 'UTF-8'),"<strong>");
-                    //$forls['answer_text'] = strip_tags($v->answer,"<strong>");
-
-                    $string = rtrim($v->answer, '</p>');
-                    $string = ltrim($string, '<p>');
-                    $forls['answer_text'] = $this->striphtml($string);
-
-
-
-                    //$forls['correct'] = $correct_answ;
-
-                    if ($correct_answ == 1) {
-                        $firstNumberforHash .= $answer_is_sprint;
-                    }
-
-                    $answerHash = $firstNumberforHash . $hash_salt; //config('constants.hash_salt');
-
-
-                    array_push($ls, $forls);
-                }
-
-                if (!$firstNumberforHash) {
-                    return response()->json([
-                        'message' => 'No firstNumberforHash fix the dataBase -> must have one ore more correct answer : '.$answer_is_sprint_int,
-                        'status' => false
-                    ]);
-                    die;
-                }
-
-                $qarr['answers'] = $ls;
-            }
-            //$qarr['answersHashORG'] = "hash('sha512', $answerHash)"; // https://www.tools4noobs.com/online_php_functions/sha512/
-            $qarr['answersHash'] = hash('sha512', $answerHash);
-            //$qarr['answersHashBase64encode'] = base64_encode(hash('sha512', $answerHash));
-            array_push($tren, $qarr);
-        }
-
-        $response["examQuestions"] = $tren;
-
-        return $response;
-
-    }
-
-    protected function showOne($data, $hash_salt, $successpercent, $nameOfExam)
-    {
-
-        $onev = explode("|", $data[0]);
-        $idv = $onev[0];
-        $idvcsv = $onev[0];
-
-        $queryExams = DB::select("CALL selectOneExamSet($idv)");
-        //$queryExams = DB::table('sqms_exam_version')->where('sqms_exam_version_id', $idv)->get();
-
-        $idset = '';
-        $i = 0;
-
-        foreach ($queryExams as $k => $v) {
-            $examNamefull = $v->sqms_exam_version_name;
-            $sqms_exam_version_id = sprintf("%010d", $v->sqms_exam_version_id);
-            $sqms_exam_set = sprintf("%05d", $v->sqms_exam_set);
-            $sqms_exam_version = sprintf("%05d", $v->sqms_exam_version);
-            $sqms_exam_version_sample_set = $v->sqms_exam_version_sample_set;
-            $idset = $sqms_exam_version_id . '-' . $sqms_exam_set . '-' . $sqms_exam_version . '-' . $sqms_exam_version_sample_set . '-';
-            $i++;
-        }
-
-        return $this->showAdv($idvcsv, $examNamefull, $idset, $hash_salt, $v->sqms_exam_set, $v->sqms_exam_version, $sqms_exam_version_sample_set, $successpercent, $nameOfExam);
-
-    }
-
-    protected function generateXML($data, $hash_salt)
-    {
-
         $idvcsv = '';
-        foreach ($data as $k => $v) {
-            $onev = explode("|", $v);
-            $idv[] = $onev[0];
-            $idvcsv .= $onev[0] . ',';
-        }
-
-        $queryExams = DB::table(self::$tableName)->where('sqms_exam_version_id', $idv)->get();
-        //$queryExams = DB::table('sqms_exam_version')->where('sqms_exam_version_id', $idv)->get();
-
-
-        $domtree = new \DOMDocument('1.0', 'UTF-8');
-        $xmlRoot = $domtree->createElement("quiz");
-        $xmlRoot = $domtree->appendChild($xmlRoot);
-
-        $idset = '';
-        $i = 0;
-        foreach ($queryExams as $k => $v) {
-            $sqms_exam_version_id = sprintf("%010d", $v->sqms_exam_version_id);
-            $sqms_exam_set = sprintf("%05d", $v->sqms_exam_set);
-            $sqms_exam_version = sprintf("%05d", $v->sqms_exam_version);
-            $sqms_exam_version_sample_set = $v->sqms_exam_version_sample_set;
-            $idset = $sqms_exam_version_id . '-' . $sqms_exam_set . '-' . $sqms_exam_version . '-' . $sqms_exam_version_sample_set . '-';
-
-            $xmlRoot->appendChild($domtree->createElement('examName', $v->sqms_exam_version_name));
-            $xmlRoot->appendChild($domtree->createElement('set', $v->sqms_exam_set));
-            $xmlRoot->appendChild($domtree->createElement('version', $v->sqms_exam_version));
-            $xmlRoot->appendChild($domtree->createElement('SampleSet', $v->sqms_exam_version_sample_set));
-            $xmlRoot->appendChild($domtree->createElement('id', rtrim($idset, "-")));
-
-            $numberOfQuestionTotal = $this->numberOfQuestionTotal($idvcsv);
-
-            $xmlRoot->appendChild($domtree->createElement('questionTotal', $numberOfQuestionTotal[0]->questionTotal));
-
-            $i++;
-        }
-
-        // ADD COMMENT IN QUIZ
-        $commentlink = "\n \"examName \" : " . "\"" . $v->sqms_exam_version_name . "\" \n";
-        $commentlink .= "\"set \" : " . $v->sqms_exam_set . " \n";
-        $commentlink .= "\"version \" : " . $v->sqms_exam_version . " \n";
-        $commentlink .= "\"SampleSet \" : " . $v->sqms_exam_version_sample_set . " \n";
-        $commentlink .= "\"id \" : " . "\"" . rtrim($idset, "-") . "\" \n";
-        $commentlink .= "\"questionTotal \" : " . $numberOfQuestionTotal[0]->questionTotal . " \n";
-
-        $comment = $domtree->createComment($commentlink);
-        $xmlRoot->appendChild($comment);
-
-
-        $numberOfQuestionTotalExam = DB::select("CALL examquestions('" . rtrim($idvcsv, ", ") . "')");
-        foreach ($numberOfQuestionTotalExam as $k => $v) {
-
-
-            $sprint_sqms_question_id = sprintf("%010d", $v->sqms_question_id);
-            $qarr['question_id'] = $sprint_sqms_question_id;
-            $qarr['question_text'] = $v->question;
-            $qarr['answers'] = [];
-            $qarr['answersSelected'] = [];
-
-            $question_question = $v->question;
-
-            $answer_is_sprint = '';
-            $listanswers = DB::select("CALL listanswers($v->sqms_exam_version_id,$v->sqms_question_id)");
-            if (count($listanswers) > 0) {
-                foreach ($listanswers as $k => $v) {
-                    $answer_is_sprint .= '-' . sprintf("%010d", $v->sqms_answer_id);
-                }
+        if( count($data) > 1 ){
+            foreach ($data as $k => $v) {
+                $onev = explode("|", $v);
+                $idv[] = $onev[0];
+                $idvcsv .= $onev[0] . ',';
             }
 
-            // QUESTION
-            $currentTrack = $domtree->createElement("question");
-            $currentTrack = $xmlRoot->appendChild($currentTrack);
-            $type = $domtree->createAttribute("type");
-            $currentTrack->appendChild($type);
-            $multichoiseset = $domtree->createTextNode("multichoiceset");
-            $type->appendChild($multichoiseset);
 
-            // NAME
-            $name = $currentTrack->appendChild($domtree->createElement('name'));
-            $text = $domtree->createElement("text");
-            $name->appendChild($text);
-            $text->appendChild($domtree->createCDATASection($sprint_sqms_question_id . $answer_is_sprint));
-
-            // QUESTIONTEXT
-            $questiontext = $currentTrack->appendChild($domtree->createElement('questiontext'));
-            $format = $domtree->createAttribute("format");
-            $questiontext->appendChild($format);
-            $html = $domtree->createTextNode("html");
-            $format->appendChild($html);
-
-            $text = $questiontext->appendChild($domtree->createElement("text"));
-            $text->appendChild($domtree->createCDATASection($question_question));
-
-            // ANSWER
-            if (count($listanswers) > 0) {
-                foreach ($listanswers as $k => $v) {
-
-                    $answer = $currentTrack->appendChild($domtree->createElement('answer'));
-                    $fraction = $domtree->createAttribute("fraction");
-                    $answer->appendChild($fraction);
-                    $numberfraction = $domtree->createTextNode("100.00000");
-                    $fraction->appendChild($numberfraction);
-
-                    $text = $answer->appendChild($domtree->createElement("text"));
-                    $text->appendChild($domtree->createCDATASection($v->answer));
-
-                }
-            }
+        } else {
+            $onev = explode("|", $data[0]);
+            $idvcsv = $onev[0];
         }
 
-        $currentTrack->appendChild($domtree->createElement('shuffleanswers', 1));
-        $currentTrack->appendChild($domtree->createElement('single', false));
-        $currentTrack->appendChild($domtree->createElement('answernumbering', 'abc'));
+        return $this->numberOfQuestionTotal($idvcsv)[0]->questionTotal;
 
-        return $domtree->saveXML();
     }
 }
